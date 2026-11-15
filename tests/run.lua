@@ -10,6 +10,9 @@ end
 CS = {}
 assert(loadfile("CrateShop/TooltipParser.lua"))("CrateShop", CS)
 dofile("tests/parser.lua")
+local catalog=loadfile("CrateShop/CrateCatalog.lua")
+if catalog then catalog("CrateShop",CS) end
+dofile("tests/catalog.lua")
 for _, path in ipairs({"tests/integration.lua", "tests/flow.lua"}) do
   local chunk = loadfile(path)
   if chunk then chunk() end

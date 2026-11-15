@@ -1,10 +1,13 @@
 local _, NS = ...
 local Parser = {}
 NS.Parser = Parser
+local function invalid(reason, line, text, expected)
+  return nil, "invalid", {reason=reason, line=line, text=text, expected=expected}
+end
 local marker = "Encha o caixote com qualquer conjunto da lista a seguir:"
 
 local function clean(text)
-  return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+  return (text:gsub("|cn[%a_][%w_]*:", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
     :gsub("\r\n", "\n"):gsub("\r", "\n"):match("^%s*(.-)%s*$"))
 end
 
@@ -23,7 +26,7 @@ function Parser.Parse(lines)
           found = found + count
           start, owner = #fragments, i
           if text ~= marker and text ~= "Usar: " .. marker then
-            return nil, "invalid"
+            return invalid("marker", i, text, "Usar: "..marker)
           end
         end
       end
@@ -31,7 +34,7 @@ function Parser.Parse(lines)
   end
   if found == 0 then return nil, "ordinary" end
   if found ~= 1 or not fragments[1] or fragments[1].text == "" or start == 1 then
-    return nil, "invalid"
+    return invalid("structure", owner, fragments[start] and fragments[start].text)
   end
   local result = {name=fragments[1].text, alternatives={}}
   local inline = false
@@ -53,13 +56,13 @@ function Parser.Parse(lines)
         if not quantity or quantity < 1 or quantity > 9007199254740991
           or quantity ~= math.floor(quantity) or not name or name == ""
           or name:find("|", 1, true) or seen[name] then
-          return nil, "invalid"
+          return invalid("alternative", f.owner, f.text)
         end
         seen[name] = true
         result.alternatives[#result.alternatives + 1] = {name=name, quantity=quantity}
       end
     end
   end
-  if #result.alternatives == 0 then return nil, "invalid" end
+  if #result.alternatives == 0 then return invalid("empty", owner, fragments[start].text) end
   return result
 end

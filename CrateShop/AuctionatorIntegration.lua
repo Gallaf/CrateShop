@@ -1,5 +1,6 @@
 local _, NS = ...
 local Integration = {}
+local MIN_AUCTIONATOR_VERSION = 346
 NS.Integration = Integration
 
 local function copy(items)
@@ -31,12 +32,16 @@ function Integration:Compatible()
   local version = metadata and metadata("Auctionator", "Version")
   local api = Auctionator and Auctionator.API and Auctionator.API.v1
   local manager = Auctionator and Auctionator.Shopping and Auctionator.Shopping.ListManager
-  if version ~= "346"
-    or not requireMethods(api, {"ConvertToSearchString", "ConvertFromSearchString", "GetShoppingListItems"})
-    or not requireMethods(manager, {"Create","Delete","GetCount","GetByIndex","GetByName","GetIndexForName"})
-    or not requireMethods(AuctionatorShoppingListMixin, {"GetAllItems","ClearItems","AppendItems","IsTemporary"})
+  local versionNumber=type(version)=="string" and tonumber(version:match("^%d+$"))
+  if not versionNumber or versionNumber<MIN_AUCTIONATOR_VERSION then
+    error("É necessário Auctionator "..MIN_AUCTIONATOR_VERSION
+      .." ou superior. Versão detectada: "..tostring(version or "indisponível")..".",0)
+  end
+  if not requireMethods(api, {"ConvertToSearchString", "ConvertFromSearchString", "GetShoppingListItems"})
+    or not requireMethods(manager, {"Create","Delete","Sort","GetCount","GetByIndex","GetByName","GetIndexForName"})
+    or not requireMethods(AuctionatorShoppingListMixin, {"GetName","GetAllItems","ClearItems","AppendItems","Rename","IsTemporary"})
     or type(self.db)~="table" or type(self.db.lists)~="table" then
-    error("Integração incompatível. É necessário Auctionator 346 e suas interfaces de listas verificadas.")
+    error("As interfaces de listas do Auctionator estão indisponíveis ou incompatíveis.",0)
   end
   return manager, api
 end
@@ -62,19 +67,29 @@ function Integration:Inspect(id, parsed)
     error("Dados do caixote inválidos.")
   end
   local record=self.db.lists[id]
-  local name=record and record.name or ("CrateShop: "..parsed.name:gsub("^Caixote Extraviado:%s*", ""))
-  if type(name)~="string" or name=="" then error("Identidade da lista inválida.") end
-  local list=self:Find(manager,name)
+  local name="CS: "..parsed.name:gsub("^Caixote Extraviado:%s*", "")
+  if name=="CS: " then error("Identidade da lista inválida.",0) end
+  local list
   if record then
-    if not list or list:GetName()~=record.name or list:IsTemporary()
-      or not same(list:GetAllItems(),record.items) then
-      error("A lista associada foi alterada, renomeada ou removida. Nenhuma lista será sobrescrita.")
+    if type(record)~="table" or type(record.name)~="string" then
+      error("Associação da lista inválida.",0)
     end
-  elseif list then
-    error("Já existe uma lista com esse nome sem associação ao CrateShop. Renomeie-a antes de continuar.")
+    list=self:Find(manager,record.name)
+    if list and (list:GetName()~=record.name or list:IsTemporary()
+      or not same(list:GetAllItems(),record.items)) then
+      error("A lista associada foi alterada. Nenhuma lista será sobrescrita.",0)
+    end
   end
+  local destination=self:Find(manager,name)
+  if destination and (not list or destination.data~=list.data) then
+    error("Já existe uma lista com o nome CS sem associação correspondente ao CrateShop. Renomeie-a antes de continuar.",0)
+  end
+  if not NS.Catalog or type(NS.Catalog.Resolve)~="function" then
+    error("Catálogo do CrateShop indisponível. Confira a instalação.",0)
+  end
+  local resolved=NS.Catalog.Resolve(id,parsed)
   local items,seen={},{}
-  for _,v in ipairs(parsed.alternatives) do
+  for _,v in ipairs(resolved.alternatives) do
     if type(v.name)~="string" or v.name=="" or v.name:find('[;|"\r\n]')
       or type(v.quantity)~="number" or v.quantity<1 or v.quantity>9007199254740991
       or v.quantity~=math.floor(v.quantity) or seen[v.name] then
@@ -92,9 +107,10 @@ function Integration:Inspect(id, parsed)
     end
     items[#items+1]=item
   end
-  return {id=id, name=name, items=items, before=list and list:GetAllItems(),
+  return {id=id, name=name, sourceName=list and list:GetName(), items=items,
+    catalogVersion=resolved.version, before=list and list:GetAllItems(),
     identity=list and list.data, record=record, manager=manager,
-    action=record and "update" or "create"}
+    action=list and "update" or "create"}
 end
 
 function Integration:Prepare(id, parsed)
@@ -118,19 +134,33 @@ function Integration:Commit(ticket)
   local touched, current, list
   local ok,err=pcall(function()
     current=self:Inspect(ticket.id,ticket.parsed)
-    if current.manager~=ticket.manager or current.name~=ticket.name
+    if current.sourceName~=ticket.sourceName or current.action~=ticket.action
+      or current.catalogVersion~=ticket.catalogVersion
+      or current.manager~=ticket.manager or current.name~=ticket.name
       or current.record~=ticket.record or current.identity~=ticket.identity
       or not same(current.items,ticket.items)
       or (current.before and not same(current.before,ticket.before)) then
       error("Os dados mudaram. Faça Shift+clique novamente para confirmar.")
     end
+    if ticket.action=="update" then
+      list=current.manager:GetByName(ticket.sourceName)
+    end
     touched=true
-    if ticket.action=="create" then current.manager:Create(ticket.name) end
-    list=current.manager:GetByName(ticket.name)
-    if ticket.action=="update" then list:ClearItems() end
+    if ticket.action=="create" then
+      current.manager:Create(ticket.name)
+      list=current.manager:GetByName(ticket.name)
+    else
+      if ticket.sourceName~=ticket.name then
+        list:Rename(ticket.name)
+        current.manager:Sort()
+      end
+      list:ClearItems()
+    end
     list:AppendItems(copy(ticket.items))
-    if not same(list:GetAllItems(),ticket.items) then error("A lista gravada não corresponde às alternativas.") end
-    self.db.lists[ticket.id]={name=ticket.name, items=copy(ticket.items)}
+    if list:GetName()~=ticket.name or not same(list:GetAllItems(),ticket.items) then
+      error("A lista gravada não corresponde às alternativas.",0)
+    end
+    self.db.lists[ticket.id]={name=ticket.name, items=copy(ticket.items), catalogVersion=ticket.catalogVersion}
   end)
   local rollback=true
   if not ok and touched then
@@ -138,11 +168,15 @@ function Integration:Commit(ticket)
       if ticket.action=="create" then
         if current.manager:GetIndexForName(ticket.name) then current.manager:Delete(ticket.name) end
       else
-        local original=current.manager:GetByName(ticket.name)
+        local original=current.manager:GetByName(list:GetName())
         if original.data~=ticket.identity then error("A identidade mudou durante a gravação.") end
         original:ClearItems()
         original:AppendItems(copy(ticket.before))
-        assert(same(original:GetAllItems(),ticket.before))
+        if original:GetName()~=ticket.sourceName then
+          original:Rename(ticket.sourceName)
+          current.manager:Sort()
+        end
+        assert(original:GetName()==ticket.sourceName and same(original:GetAllItems(),ticket.before))
       end
     end)
   end

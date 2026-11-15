@@ -1,41 +1,41 @@
 # CrateShop
 
-Addon inicial para WoW Forever em português brasileiro. Lê dinamicamente os requisitos de um caixote e, após confirmação, cria uma Shopping List no Auctionator. Cada entrada é uma **alternativa**: basta preencher um conjunto, não comprar tudo.
+Addon para WoW Forever em português brasileiro. Reconhece os requisitos no tooltip e usa um catálogo versionado de IDs para criar, após confirmação, uma Shopping List no Auctionator com os nomes corretos dos materiais. Cada entrada é uma **alternativa**: basta preencher um conjunto, não comprar tudo.
 
 ## Instalação
 
-Compatibilidade inspecionada: cliente **1.60.1.70938**, interface **16001**, Auctionator **346**.
+Compatibilidade inspecionada: cliente **1.60.1.70938**, interface **16001**, Auctionator **346 ou superior** (interfaces inspecionadas nas versões 346 e 347).
 
 1. Feche o cliente ou volte à seleção de personagens.
 2. Copie somente a pasta interna [CrateShop](CrateShop) para C:\Program Files (x86)\World of Warcraft\_forever_\Interface\AddOns\CrateShop.
 3. Confira que CrateShop.toc fica diretamente nessa pasta, sem pasta duplicada.
-4. Ative Auctionator e CrateShop na seleção de addons.
-
-Não há instalação automática. Nenhum arquivo do jogo ou de outro addon foi alterado.
+4. Ative Auctionator e CrateShop na seleção de addons. O CrateShop usa o ícone nativo de caixote (236994), sem assets adicionais.
 
 ## Uso
 
 Abra a Casa de Leilões e faça Shift+clique no hyperlink de um caixote. Mantenha o chat sem foco. Confira nome e número de alternativas e escolha **Criar lista** ou **Cancelar**. Uma lista já associada oferece **Atualizar lista**.
 
-As entradas usam nome exato e a quantidade lida do tooltip. O CrateShop não inicia pesquisa nem compra. O Auctionator continua realizando sua busca habitual do Shift+clique; pesquisar/expandir manualmente a lista depois segue as preferências normais dele.
+As entradas usam os IDs/quantidades do catálogo e nomes exatos localizados obtidos do cliente. O CrateShop não inicia pesquisa nem compra. O Auctionator continua realizando sua busca habitual do Shift+clique; pesquisar/expandir manualmente a lista depois segue as preferências normais dele.
 
-O parser usa a frase “Encha o caixote com qualquer conjunto da lista a seguir:” e alternativas “- quantidade nome”. Novos caixotes funcionam sem atualização **enquanto mantiverem esse formato suportado**. Não existe catálogo de materiais/IDs.
+O parser usa a frase “Encha o caixote com qualquer conjunto da lista a seguir:” e alternativas “- quantidade nome”. **Novos caixotes exigem inclusão no catálogo**, além de manterem esse formato suportado. A versão atual cobre 30 caixotes; consulte [origem, limites e atualização dos dados](docs/catalog.md).
 
-Se o item ainda não estiver carregado, aguarde e repita o gesto. Não há repetição automática. Avisos são limitados a um a cada cinco segundos. Itens comuns com tooltip disponível são ignorados silenciosamente.
+Se o caixote ou o nome de algum material ainda não estiver carregado, aguarde e repita o gesto. A operação é bloqueada integralmente até obter todos os nomes; para materiais, a solicitação de carga é limitada a uma por ID na sessão. Não há repetição automática. Avisos são limitados a um a cada cinco segundos. Itens comuns com tooltip disponível são ignorados silenciosamente.
 
 ## Proteção das listas
 
-CrateShopDB mantém apenas versão do formato e, por Item ID, nome da lista e cópia dos termos criados. O prefixo do nome não prova propriedade. Colisão com lista alheia cancela a operação, inclusive com diferenças de caixa ASCII. Renomeie a lista conflitante manualmente se desejar liberar o nome.
+CrateShopDB mantém versão do formato e, por Item ID, nome da lista, cópia dos termos criados e, nas novas gravações, versão do catálogo. O prefixo do nome não prova propriedade. Colisão com lista alheia cancela a operação, inclusive com diferenças de caixa ASCII. Renomeie a lista conflitante manualmente se desejar liberar o nome.
 
-Listas associadas que foram editadas, reordenadas, renomeadas ou removidas são bloqueadas conservadoramente. Não são procuradas por semelhança nem sobrescritas. Para abandonar deliberadamente uma associação, use no jogo, trocando ITEM_ID pelo número do caixote:
+Listas associadas editadas ou reordenadas continuam bloqueadas para preservar alterações manuais.
 
-~~~lua
-/run CrateShopDB.lists[ITEM_ID] = nil
-~~~
+No próximo Shift+clique, uma lista própria intacta com prefixo antigo CrateShop: oferece **Atualizar lista** para migrar para **CS:** e atualizar os materiais na mesma confirmação. Não é criada uma segunda lista durante a migração. Colisões com outro nome CS: são recusadas.
 
-Isso remove apenas a associação própria. Preserve/renomeie a lista existente antes de tentar criar outra. Não apague SavedVariables do Auctionator.
+Se o nome salvo não for encontrado, o próximo Shift+clique oferece **Criar lista** novamente, desde que o nome CS: esteja livre. Não é necessário apagar a associação por comando. Se você renomeou a lista manualmente, ela permanece intacta e a nova importação pode criar outra lista CS:; a ausência do nome anterior não distingue exclusão de renomeação.
 
 A confirmação é revalidada contra o tooltip e contra as listas atuais. Cancelamento, Escape e fechamento da Casa de Leilões não gravam. Falhas de gravação tentam reverter pelos métodos do gerenciador; não existe transação nativa do Auctionator. Veja os limites em [compatibilidade](docs/compatibility.md).
+
+## Atualizar listas criadas em plural
+
+Após instalar a versão 0.2.1, feche e reabra o cliente para garantir o carregamento do novo arquivo listado no TOC e faça Shift+clique no mesmo caixote. Escolha **Atualizar lista** para substituir os termos plurais pelos nomes canônicos e migrar o prefixo para CS:. A lista existente deve continuar idêntica à cópia que o CrateShop salvou. Se foi apagada, será oferecida nova criação em vez de atualização; não é necessário limpar o vínculo. Listas manuais permanecem protegidas.
 
 ## Testes fora do jogo
 
@@ -45,7 +45,7 @@ Na raiz do repositório, com Lua 5.1:
 lua .\tests\run.lua
 ~~~
 
-O harness lê o código instalado do Auctionator, sem carregar SavedVariables pessoais. Para outra instalação, configure AUCTIONATOR_PATH apontando para a pasta Auctionator. Requer a versão 346.
+O harness lê o código instalado do Auctionator, sem carregar SavedVariables pessoais. Para outra instalação, configure AUCTIONATOR_PATH apontando para a pasta Auctionator. Requer Auctionator 346 ou superior; o harness lê a versão e as fontes da instalação indicada.
 
 Alternativa usada nesta entrega, com Python e Lupa locais apenas para desenvolvimento:
 
@@ -57,17 +57,19 @@ python .\tests\check_package.py
 
 .tools é ignorada pelo Git e não deve ser copiada para AddOns. O addon depende somente do Auctionator e das APIs do cliente.
 
-## Roteiro pendente dentro do Forever
+## Roteiro de validação dentro do Forever
 
-1. Ativar erros Lua e verificar carregamento sem erros com Auctionator 346.
+1. Ativar erros Lua e verificar carregamento sem erros com Auctionator 346 ou superior.
 2. Abrir a Casa de Leilões, deixar chat sem foco e fazer Shift+clique nos caixotes de plantas e minérios.
 3. Conferir nome, cinco/duas alternativas e os botões; cancelar e verificar ausência de lista nova.
 4. Repetir, confirmar e conferir nomes exatos e quantidades (minérios: 10 Ouro, 20 Mithril).
 5. Observar a busca normal do Auctionator e confirmar que **confirmar a lista não dispara outra busca**, inclusive com AUTO_LIST_SEARCH ligado e desligado.
 6. Repetir para atualizar; verificar que nenhuma outra lista muda e cliques repetidos não duplicam.
-7. Testar colisão com lista manual, edição, renomeação e remoção da própria; verificar recusa conservadora.
+7. Testar colisão com lista manual e edição da própria (recusa); apagar a própria e reimportar (nova criação); renomear manualmente e conferir preservação da renomeada.
 8. Abrir confirmação e fechar AH, usar Escape, mudar tooltip/lista e tentar confirmar; não deve gravar dados obsoletos.
 9. Shift+clique em item comum e com chat focado: sem confirmação/spam; conferir que links no chat continuam normais.
-10. Recarregar UI e conferir persistência das associações. Validar caixote novo com mesmo formato.
+10. Recarregar UI e conferir persistência das associações. Validar bloqueio de caixote fora do catálogo e o carregamento dos nomes dos materiais.
 
-Hooks, diálogos e criação de listas **não foram executados dentro do jogo** nesta entrega. O harness simula as fronteiras do cliente; não certifica comportamento de frames, taint ou SavedVariables gravadas pelo cliente.
+O usuário confirmou no Forever a atualização da lista de plantas, os cinco materiais canônicos com dez unidades e resultados de busca, além da recuperação de cache frio e da correção de foco na aba do Auctionator. Também confirmou funcionamento após o incremento 0.2.1. Isso não substitui a conferência individual de todos os cenários acima: o harness não certifica persistência entre sessões, taint nem ausência de pesquisas adicionais no cliente. Consulte [evidências e limites](docs/compatibility.md).
+
+As mudanças da versão estão no [changelog](CHANGELOG.md).

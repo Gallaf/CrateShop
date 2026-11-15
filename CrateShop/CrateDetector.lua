@@ -13,9 +13,12 @@ function Detector:Install(core)
   local function observe(link)
     if not self:IsOpen() or not IsShiftKeyDown() or type(link)~="string"
       or not link:match("|Hitem:%d+:") then return end
-    -- More conservative than Auctionator: any focused edit control is ignored,
-    -- including unnamed controls, as is a visible chat edit window.
-    if GetCurrentKeyBoardFocus and GetCurrentKeyBoardFocus() then return end
+    -- Auctionator's unnamed search field can retain focus during Shift-click.
+    -- Allow only that verified control; chat and other edit controls stay blocked.
+    local focus=GetCurrentKeyBoardFocus and GetCurrentKeyBoardFocus()
+    local options=AuctionatorShoppingFrame and AuctionatorShoppingFrame.SearchOptions
+    local search=options and options.SearchString
+    if focus and focus~=search then return end
     local chat=ChatEdit_GetActiveWindow and ChatEdit_GetActiveWindow()
     if chat and chat:IsShown() then return end
     -- A secure post-hook must never interfere with the original link handler.
