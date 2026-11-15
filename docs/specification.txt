@@ -1,0 +1,194 @@
+Implemente a versão inicial do addon CrateShop em C:\Repos\CrateShop, seguindo a especificação abaixo. Este pedido autoriza a implementação; assuma escolhas rotineiras e não interrompa para uma nova rodada de brainstorming. Pergunte somente se existir um impedimento ou decisão que altere materialmente o escopo.
+
+Objetivo
+Criar Shopping Lists no Auctionator a partir dos requisitos dos Caixotes Extraviados do WoW Forever, lidos dinamicamente do tooltip. Não usar catálogo fixo de caixotes ou materiais.
+
+Ambiente já investigado
+- Instalação: C:\Program Files (x86)\World of Warcraft\_forever_
+- Addons: Interface\AddOns dentro dessa instalação.
+- Cliente identificado: 1.60.1.70938.
+- Interface indicada pelos addons instalados: 16001.
+- Auctionator instalado: versão 346.
+- Confirme esses dados antes de implementar.
+- Verifique se C:\Repos\CrateShop já existe e preserve arquivos existentes.
+- Não modifique Economy Companion, PocketGold ou outros repositórios.
+- Use Lua, TOC e XML somente se necessário. Sem dependências externas de execução.
+- Inicialize Git localmente se necessário, com branch codex/initial-addon.
+- Não faça push, crie remoto ou publique no GitHub.
+- Entregue a pasta CrateShop pronta para copiar para AddOns. Não instale no jogo automaticamente.
+
+Validação já realizada dentro do Forever
+O usuário confirmou que:
+1. GameTooltip:GetItem() retorna o hyperlink do caixote.
+2. As linhas visíveis podem ser lidas por Lua.
+3. C_TooltipInfo.GetHyperlink(hyperlink) retorna os requisitos completos em data.lines[i].leftText.
+4. Todo o bloco de requisitos fica em uma única linha lógica do tooltip, com quebras de linha internas.
+5. A consulta pelo hyperlink retornou o tooltip sem os complementos adicionados por outros addons.
+
+Capturas reais para fixtures e testes
+
+Caixote Extraviado: Plantas de Profissional
+Linha 1:
+Caixote Extraviado: Plantas de Profissional
+
+Linha 2, incluindo quebras internas:
+Usar: Encha o caixote com qualquer conjunto da lista a seguir:
+- 10 Estrangulalgas
+- 10 Ervamossas
+- 10 Áceras-agrestes
+- 10 Musgos-de-tumba
+- 10 Sangues-reais
+
+Linha 3:
+Requer o Nível 10
+
+Caixote Extraviado: Minérios de Especialista
+Linha 1:
+Caixote Extraviado: Minérios de Especialista
+
+Linha 2, incluindo quebras internas:
+Usar: Encha o caixote com qualquer conjunto da lista a seguir:
+- 10 Minérios de Ouro
+- 20 Minérios de Mithril
+
+Linha 3:
+Requer o Nível 20
+
+A quantidade de alternativas é variável. Não fixar cinco materiais nem dez unidades.
+
+Fluxo esperado
+1. Com Auction House aberta, observar Shift+clique em um item por hook seguro.
+2. Obter hyperlink e Item ID.
+3. Consultar C_TooltipInfo.GetHyperlink.
+4. Reconhecer a estrutura de preenchimento do caixote.
+5. Interpretar todas as alternativas.
+6. Exibir confirmação com nome do caixote, número de alternativas e botões Criar lista/Cancelar.
+7. Deixar explícito que os materiais são alternativas: basta escolher um conjunto.
+8. Somente após confirmação, gravar a lista no Auctionator.
+9. Mostrar mensagem breve de sucesso.
+
+Detecção
+O Auctionator instalado usa hooks seguros em:
+- ChatFrameUtil.InsertLink, quando disponível;
+- ChatEdit_InsertLink, como alternativa.
+
+Inspecione Source\Shopping\Hooks.lua e confirme a integração adequada.
+Filtre Auction House aberta, Shift pressionado e hyperlink de item. Evite capturar gestos destinados a escrever links no chat.
+Não substitua funções originais nem interfira no funcionamento do Auctionator.
+Não suprima a busca que o próprio Auctionator já realiza normalmente com Shift+clique. O CrateShop não deve iniciar buscas adicionais.
+
+Parser
+- Mantenha-o isolado e testável sem o cliente.
+- Use a frase real “Encha o caixote com qualquer conjunto da lista a seguir:” como marcador estrutural.
+- Divida também as quebras de linha internas de cada linha lógica.
+- Leia alternativas no formato “- quantidade nome”.
+- Preserve nomes localizados e quantidades inteiras positivas.
+- Aceite quantidade variável de alternativas, ordem variável e formatação colorida.
+- Não dependa exclusivamente do nome ou ID do caixote.
+- Não confunda nível, preço, recompensas ou informações de outros addons com requisitos.
+- Não aceite silenciosamente um bloco parcialmente interpretado.
+- Se o formato for incompleto ou ambíguo, informe o problema e não crie lista.
+- Itens comuns devem ser ignorados sem abrir confirmação nem gerar spam.
+- Diferencie item comum de caixote reconhecido com requisitos inválidos.
+- Não afirme que uma truncagem silenciosa é detectável sem evidência.
+
+Integração com Auctionator
+Foram verificadas estas funções na instalação:
+- Auctionator.API.v1.ConvertToSearchString(callerID, term)
+- Auctionator.API.v1.CreateShoppingList(callerID, name, searchStrings)
+- Auctionator.API.v1.GetShoppingListItems(callerID, name)
+
+Exemplo de termo:
+{
+    searchString = "Minérios de Mithril",
+    isExact = true,
+    quantity = 20
+}
+
+O WhatsItFor instalado e o projeto RestockShoppingList utilizam ConvertToSearchString e CreateShoppingList.
+
+Ressalva importante:
+Na versão 346 instalada, CreateShoppingList substitui listas de mesmo nome e dispara ListImportFinished. Isso expande a lista e pode iniciar pesquisa conforme AUTO_LIST_SEARCH.
+
+Preserve o requisito de não iniciar pesquisas adicionais:
+- Prefira API pública quando atender ao comportamento exigido.
+- Se necessário, use um adaptador pequeno para as funções verificadas do gerenciador de listas.
+- Inspecione Source\Shopping\Mixins\ListManager.lua, List.lua e os consumidores dos eventos antes de decidir.
+- Não escreva diretamente nas SavedVariables do Auctionator.
+- Não substitua temporariamente funções globais, não suprima eventos globalmente e não altere as configurações do jogador para contornar a pesquisa automática.
+- Verifique disponibilidade das funções e recuse a operação com mensagem clara se a integração não for compatível.
+- Documente qualquer dependência de interfaces internas.
+- Não execute compras ou buscas automáticas.
+
+Identidade e atualização
+- Nome sugerido: CrateShop: Plantas de Profissional.
+- Mantenha SavedVariables próprias mínimas para associar o Item ID do caixote à lista criada.
+- Não considere apenas o prefixo do nome como prova de propriedade.
+- Não sobrescreva listas alheias em caso de colisão.
+- Se a lista própria já existir, ofereça Atualizar lista/Cancelar.
+- Preserve todas as demais listas.
+- Trate listas renomeadas, removidas ou alteradas pelo jogador de forma conservadora.
+- Prepare e valide todas as entradas antes da primeira alteração.
+- Evite alterações parciais e duplicadas; trate falhas e documente os limites reais de atomicidade.
+- Proteja contra cliques repetidos e confirmação de dados obsoletos.
+- Cancelar não pode alterar listas.
+
+Robustez
+- Auctionator como dependência obrigatória no TOC.
+- Verificação das APIs antes de utilizá-las.
+- Tratamento limitado de dados de item ainda não carregados, sem loops de tentativa ou spam.
+- Mensagens em português brasileiro.
+- Sem frameworks ou sistema de configuração desnecessário.
+- Sem dados de preços, inventário ou histórico econômico.
+
+Estrutura sugerida
+.gitignore
+README.md
+docs/compatibility.md
+CrateShop/CrateShop.toc
+CrateShop/Core.lua
+CrateShop/CrateDetector.lua
+CrateShop/TooltipParser.lua
+CrateShop/AuctionatorIntegration.lua
+CrateShop/ConfirmationDialog.lua
+tests/
+
+Consolide arquivos se isso simplificar a implementação.
+
+Verificação
+Escreva testes de comportamento do parser antes de implementá-lo e confirme a falha relevante. Use Lua para os testes se houver interpretador disponível; não introduza dependência de execução no addon.
+
+Cubra:
+- As duas capturas reais acima.
+- Novo caixote com o mesmo formato e outro nome.
+- Quantidades e número de alternativas variáveis.
+- Cores, quebras de linha e ordem variável.
+- Item comum.
+- Bloco vazio, alternativa inválida e requisitos ambíguos.
+- Linhas extras fora do bloco.
+
+Teste a integração fora do jogo com um harness Lua simples quando viável:
+- Confirmação e cancelamento.
+- Colisão de nomes.
+- Criação e atualização.
+- Preservação de listas alheias.
+- Falha de dependência e falha durante gravação.
+- Ausência de chamadas de pesquisa pelo CrateShop.
+
+Separe claramente:
+- Testes executados fora do jogo.
+- Inspeção estática.
+- Validações pendentes dentro do Forever.
+
+Não declare criação de listas, hooks ou diálogos testados no jogo sem execução real.
+
+Documentação e entrega
+- Registre decisões técnicas e evidências de compatibilidade.
+- Explique instalação, uso e roteiro de validação no jogo.
+- Documente que caixotes novos funcionam sem atualização somente enquanto mantiverem o formato suportado.
+- Informe arquivos criados, verificações executadas e limitações.
+- Informe estado do Git e branch; commit somente se autorizado.
+- Não altere dados pessoais, SavedVariables existentes ou arquivos de outros addons.
+- Se algum requisito for inviável, entregue a parte funcional possível e explique o impedimento sem inventar compatibilidade.
+
+Prossiga com a implementação e as verificações possíveis.
