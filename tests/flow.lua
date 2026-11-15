@@ -4,7 +4,7 @@ local function module(path)
   if f then f("CrateShop",CS) end
 end
 local handlers, hooks, popup, messages, queried, focused, shifted
-local link="|cffffffff|Hitem:100::::::::|h[Caixa]|h|r"
+local link="|cffffffff|Hitem:248692::::::::|h[Caixa]|h|r"
 local function setupFlow()
   local a,m,db=setupIntegration()
   handlers,hooks,messages,queried={},{},{},0
@@ -40,7 +40,7 @@ local function setupFlow()
     eq(actual,link); queried=queried+1
     return {lines=Fixtures.ores}
   end}
-  AuctionHouseFrame=nil; AuctionFrame=nil
+  AuctionHouseFrame=nil; AuctionFrame=nil; AuctionatorShoppingFrame=nil
   module("ConfirmationDialog"); module("CrateDetector"); module("Core")
   assert(CS.Core,"flow not implemented")
   handlers.OnEvent(nil,"ADDON_LOADED","CrateShop")
@@ -125,4 +125,116 @@ test("erro ao abrir diálogo não prende futuras confirmações", function()
   click(); eq(m:GetCount(),0)
   StaticPopup_Show=show
   click(); assert(popup,"nova confirmação deve ser permitida")
+end)
+test("aviso de requisitos inválidos inclui motivo e trecho escapado", function()
+  local m=setupFlow()
+  C_TooltipInfo.GetHyperlink=function()
+    return {lines={{leftText="Caixa"},{leftText="Usar: Encha o caixote com qualquer conjunto da lista a seguir:\n- inválido"}}}
+  end
+  click()
+  eq(m:GetCount(),0); eq(popup,nil)
+  assert(messages[1]:find("alternative",1,true),"aviso deve identificar etapa recusada")
+  assert(messages[1]:find("-<32>inválido",1,true),"aviso deve identificar trecho recusado")
+end)
+test("diagnóstico identifica primeiro byte diferente no cabeçalho", function()
+  local m=setupFlow()
+  C_TooltipInfo.GetHyperlink=function()
+    return {lines={{leftText="Caixa"},{leftText="Usar:  Encha o caixote com qualquer conjunto da lista a seguir:\n- 10 Ouro"}}}
+  end
+  click(); eq(m:GetCount(),0)
+  assert(messages[1]:find("byte 7: 32/69",1,true),"deve mostrar posição e bytes atual/esperado")
+end)
+test("diagnóstico exibe pipe como número para impedir interpretação pelo chat", function()
+  local m=setupFlow()
+  C_TooltipInfo.GetHyperlink=function()
+    return {lines={{leftText="Caixa"},{leftText="Usar: Encha o caixote com qualquer conjunto da lista a seguir:|zIQ1:\n- 10 Ouro"}}}
+  end
+  click(); eq(m:GetCount(),0)
+  assert(messages[1]:find("<124>zIQ1:",1,true),"código residual deve aparecer como texto sem pipe")
+end)
+test("tooltip com cor IQ1 abre confirmação sem gravar antes do aceite", function()
+  local m=setupFlow()
+  C_TooltipInfo.GetHyperlink=function()
+    return {lines={{leftText="Caixa nova"},{leftText="Usar: Encha o caixote com qualquer conjunto da lista a seguir:|cnIQ1:\n- 10 Minérios de Ouro\n- 20 Minérios de Mithril|r"}}}
+  end
+  click()
+  assert(popup,"cor nomeada não deve impedir confirmação")
+  eq(m:GetCount(),0); eq(#messages,0)
+  cancel(); eq(m:GetCount(),0)
+end)
+
+test("campo de pesquisa do Auctionator com foco permite confirmação", function()
+  local m=setupFlow()
+  local search={GetName=function() return nil end}
+  AuctionatorShoppingFrame={SearchOptions={SearchString=search}}
+  focused=search
+  click(); assert(popup,"pesquisa Auctionator com foco deve permitir confirmação")
+  eq(m:GetCount(),0); cancel()
+end)
+test("campo sem nome alheio continua ignorado", function()
+  setupFlow()
+  focused={GetName=function() return nil end}
+  click(); eq(queried,0); eq(popup,nil)
+end)
+test("chat visível continua bloqueado mesmo com foco na pesquisa Auctionator", function()
+  setupFlow()
+  local search={}
+  AuctionatorShoppingFrame={SearchOptions={SearchString=search}}
+  focused=search
+  ChatEdit_GetActiveWindow=function() return {IsShown=function() return true end} end
+  click(); eq(queried,0); eq(popup,nil)
+end)
+test("hook real do Auctionator pode preencher pesquisa antes do CrateShop", function()
+  local m=setupFlow()
+  local crateHook=hooks[#hooks].callback
+  local searches=0
+  local search={GetName=function() return nil end}
+  AuctionatorShoppingFrame={
+    IsVisible=function() return true end,
+    DoSearch=function(_,terms)
+      eq(terms[1],'"Caixa"'); searches=searches+1
+    end,
+    SearchOptions={SearchString=search,SetSearchTerm=function(_,term)
+      eq(term,'"Caixa"'); focused=search
+    end},
+  }
+  C_Timer={After=function(_,fn) fn() end}
+  StackSplitFrame={Hide=function() end}
+  local itemLookup=C_Item.GetItemInfo
+  C_Item.GetItemInfo=function(value)
+    if type(value)=="string" then return "Caixa" end
+    return itemLookup(value)
+  end
+  strfind=string.find; strmatch=string.match
+  Auctionator.Shopping.Recents={Save=function() end}
+  local root=os.getenv("AUCTIONATOR_PATH") or "C:/Program Files (x86)/World of Warcraft/_forever_/Interface/AddOns/Auctionator"
+  dofile(root.."/Source/Shopping/Hooks.lua")
+  hooks[#hooks].callback(link)
+  eq(searches,1); eq(focused,search)
+  crateHook(link)
+  assert(popup,"hook posterior deve reconhecer caixote mesmo após pesquisa original")
+  eq(searches,1); eq(m:GetCount(),0)
+  cancel(); eq(searches,1); eq(m:GetCount(),0)
+end)
+
+test("cancelar migração mantém nome legado e próximo gesto oferece CS",function()
+  local m,db=setupFlow()
+  seedLegacyOre(m,db)
+  click(); eq(popup.button1.text,"Atualizar lista")
+  assert(popup.text:find("CS: Minérios de Especialista",1,true))
+  cancel()
+  assert(m:GetIndexForName("CrateShop: Minérios de Especialista"))
+  eq(m:GetIndexForName("CS: Minérios de Especialista"),nil)
+  click(); accept()
+  eq(m:GetIndexForName("CrateShop: Minérios de Especialista"),nil)
+  assert(m:GetIndexForName("CS: Minérios de Especialista"))
+end)
+test("próximo Shift clique após apagar oferece criar e cancelar não recria",function()
+  local m,db=setupFlow()
+  click(); accept()
+  m:Delete(db.lists[248692].name)
+  click(); eq(popup.button1.text,"Criar lista")
+  cancel(); eq(m:GetCount(),0)
+  click(); accept(); eq(m:GetCount(),1)
+  assert(m:GetIndexForName("CS: Minérios de Especialista"))
 end)

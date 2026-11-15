@@ -2,11 +2,13 @@
 ## Title: CrateShop
 ## Notes: Listas de alternativas dos Caixotes Extraviados no Auctionator.
 ## Author: CrateShop
-## Version: 0.1.0
+## IconTexture: 236994
+## Version: 0.2.1
 ## Dependencies: Auctionator
 ## SavedVariables: CrateShopDB
 
 TooltipParser.lua
+CrateCatalog.lua
 AuctionatorIntegration.lua
 ConfirmationDialog.lua
 CrateDetector.lua

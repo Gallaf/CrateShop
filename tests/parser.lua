@@ -72,3 +72,55 @@ test("linha externa com formato de recompensa não amplia bloco inline", functio
   }))
   eq(#p.alternatives,1); eq(p.alternatives[1].name,"Ouro")
 end)
+test("rejeição informa marcador incompatível e trecho exato", function()
+  local text="Usar:  Encha o caixote com qualquer conjunto da lista a seguir:"
+  local parsed,status,detail=CS.Parser.Parse({
+    {leftText="Caixa"}, {leftText=text.."\n- 10 Ouro"}
+  })
+  eq(parsed,nil); eq(status,"invalid")
+  assert(detail,"motivo da rejeição deve ser informado")
+  eq(detail.reason,"marker"); eq(detail.line,2); eq(detail.text,text)
+end)
+test("rejeição informa alternativa inválida sem aceitar bloco parcial", function()
+  local parsed,status,detail=CS.Parser.Parse({
+    {leftText="Caixa"},
+    {leftText="Usar: Encha o caixote com qualquer conjunto da lista a seguir:\n- 10 Ouro\n- inválido"}
+  })
+  eq(parsed,nil); eq(status,"invalid")
+  assert(detail,"motivo da rejeição deve ser informado")
+  eq(detail.reason,"alternative"); eq(detail.line,2); eq(detail.text,"- inválido")
+end)
+test("cabeçalho rejeitado inclui literal esperado para comparação byte a byte", function()
+  local _,_,detail=CS.Parser.Parse({
+    {leftText="Caixa"},
+    {leftText="Usar:  Encha o caixote com qualquer conjunto da lista a seguir:\n- 10 Ouro"}
+  })
+  eq(detail.expected,"Usar: Encha o caixote com qualquer conjunto da lista a seguir:")
+end)
+test("código de cor nomeada IQ1 do Forever não invalida cabeçalho", function()
+  local parsed=assert(CS.Parser.Parse({
+    {leftText="Caixote Extraviado: Plantas de Profissional"},
+    {leftText="Usar: Encha o caixote com qualquer conjunto da lista a seguir:|cnIQ1:\n- 10 Estrangulalgas\n- 10 Ervamossas\n- 10 Áceras-agrestes\n- 10 Musgos-de-tumba\n- 10 Sangues-reais|r"},
+    {leftText="Requer o Nível 10"}
+  }))
+  eq(#parsed.alternatives,5)
+  eq(parsed.alternatives[3].name,"Áceras-agrestes")
+  eq(parsed.alternatives[5].name,"Sangues-reais")
+end)
+test("cores nomeadas e hexadecimais preservam nomes e quantidades", function()
+  local p=assert(CS.Parser.Parse({
+    {leftText="|cnIQ1:Caixa nova|r"},
+    {leftText="Usar: Encha o caixote com qualquer conjunto da lista a seguir:|cnIQ1:\n- 20 |cnIQ2:Minérios de Mithril|r\n- |cffffffff3|r |cnIQ1:Prata|r"}
+  }))
+  eq(p.name,"Caixa nova")
+  eq(#p.alternatives,2)
+  eq(p.alternatives[1].name,"Minérios de Mithril"); eq(p.alternatives[1].quantity,20)
+  eq(p.alternatives[2].name,"Prata"); eq(p.alternatives[2].quantity,3)
+end)
+test("código de cor incompleto não é descartado silenciosamente", function()
+  local p,status=CS.Parser.Parse({
+    {leftText="Caixa"},
+    {leftText="Usar: Encha o caixote com qualquer conjunto da lista a seguir:|cnIQ1\n- 10 Ouro"}
+  })
+  eq(p,nil); eq(status,"invalid")
+end)

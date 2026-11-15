@@ -1,71 +1,92 @@
 # Compatibilidade e decisões técnicas
 
-## Evidências locais — 15/11/2026
+## Estado atual
 
-Inspeção somente leitura em C:\Program Files (x86)\World of Warcraft\_forever_.
+CrateShop 0.2.1: cliente Forever 1.60.1.70938, interface 16001 e Auctionator numérico 346 ou superior. Interfaces inspecionadas nas versões 346 e 347; o harness atual lê as fontes reais da 347 instalada. A versão mínima foi pedida pelo usuário; a presença dos métodos não certifica o comportamento de implementações futuras.
 
-- Wow.exe, FileVersion: 1.60.1.70938.
-- Interface/AddOns/Auctionator/Auctionator.toc: versão 346, inclui interface 16001.
-- Source/Shopping/Hooks.lua: hook seguro em ChatFrameUtil.InsertLink, fallback ChatEdit_InsertLink. O callback ignora foco nomeado e faz a busca normal na aba Shopping visível.
-- Source/API/v1/ShoppingLists.lua: verificadas ConvertToSearchString, ConvertFromSearchString, GetShoppingListItems, CreateShoppingList. Esta última apaga lista de mesmo nome e dispara ListImportFinished.
-- Source/Shopping/Mixins/ListManager.lua: Create, Delete, GetCount, GetByIndex, GetByName, GetIndexForName; eventos meta/item.
-- Source/Shopping/Mixins/List.lua: GetName, IsTemporary, GetAllItems, ClearItems, AppendItems; campo interno data como identidade de sessão, somente leitura pelo CrateShop.
-- Source/Tabs/Shopping/Mixins/Main.lua: ListImportFinished expande a lista; SetOnListExpanded chama DoSearch se AUTO_LIST_SEARCH.
-- Source/Tabs/Shopping/Mixins/ListsContainer.lua: ListMetaChange e ListItemChange repopulam a visualização, sem expandir/pesquisar.
-- Pesquisa nos consumidores em Source, Source_LegacyAH, Source_Forever, Source_Vanilla não revelou outra pesquisa ligada aos eventos meta/item.
-- Source/Search/Advanced.lua: serializa busca exata e quantidade. Nomes contendo delimitadores, aspas, markup residual ou quebras são recusados antes da escrita.
+O escopo vigente inclui catálogo versionado, prefixo CS:, migração de listas próprias e reimportação quando o nome associado não existir. Essas decisões substituem as exigências iniciais correspondentes em specification.txt. A confirmação antes de gravar permanece obrigatória.
 
-A leitura por C_TooltipInfo.GetHyperlink e as duas capturas reais foram fornecidas como validação prévia pelo usuário. Não houve nova execução dessas APIs no cliente nesta sessão. Não se presume compatibilidade de APIs Retail/Classic não inspecionadas.
+## Evidências das interfaces
 
-## Adaptador deliberadamente restrito
+Inspeção somente leitura em Interface/AddOns/Auctionator:
 
-A API pública converte os termos e valida a conversão inversa de nome, busca exata e quantidade antes de qualquer escrita. A criação pública não atende ao requisito de nenhuma busca adicional: por isso o adaptador usa o gerenciador interno somente na versão 346, verificando métodos antes de operar.
+| Fonte | Contrato relevante |
+| --- | --- |
+| Auctionator.toc | Versão e interface do addon instalado. |
+| Source/Shopping/Hooks.lua | Hook seguro em ChatFrameUtil.InsertLink, fallback ChatEdit_InsertLink; pesquisa original do Shift+clique. |
+| Source/API/v1/ShoppingLists.lua | Conversão pública de termos, leitura de listas e criação que substitui nome existente e emite ListImportFinished. |
+| Source/Shopping/Mixins/ListManager.lua | Create, Delete, Sort, GetCount, GetByIndex, GetByName e GetIndexForName; eventos meta/item. |
+| Source/Shopping/Mixins/List.lua | GetName, IsTemporary, GetAllItems, Rename, ClearItems e AppendItems; data como identidade de sessão. |
+| Source/Tabs/Shopping/Mixins/Main.lua | ListImportFinished expande a lista e pode iniciar busca por AUTO_LIST_SEARCH. |
+| Source/Tabs/Shopping/Mixins/ListsContainer.lua | Eventos meta/item repopulam sem expandir/pesquisar. |
+| Source/Search/Advanced.lua | Serialização de busca exata e quantidade. |
 
-Criação: manager:Create(name) e list:AppendItems(entries).
-Atualização: list:ClearItems() e list:AppendItems(entries).
-Reversão: manager:Delete(name) para criação ou Clear/Append dos itens anteriores para atualização.
+Os consumidores também foram pesquisados em Source_LegacyAH, Source_Forever e Source_Vanilla. Nenhum arquivo de outro addon foi alterado.
 
-Os eventos normais desses métodos permanecem ativos. Não se dispara ListImportFinished, não se expande lista e não se substituem globais, eventos ou configurações. Não há chamadas de pesquisa/compra nem escrita direta em SavedVariables do Auctionator.
+## Integração sem pesquisa adicional
 
-O hook do CrateShop é um observador posterior seguro e não modifica argumentos, retorno ou busca original. Além de Shift e AH aberta, rejeita qualquer foco de teclado e janela ativa de edição do chat visível. Ausência do hook suportado desativa detecção com aviso.
+A API pública converte os termos; a conversão inversa confere nome, busca exata e quantidade. A criação pública não atende ao comportamento exigido, então o adaptador usa métodos internos verificados:
 
-Mudança de versão do Auctionator exige reinspeção antes de liberar o adaptador. O bloqueio é proposital mesmo que as funções continuem existindo.
+- Criar: Create e AppendItems.
+- Atualizar: ClearItems e AppendItems.
+- Migrar nome: Rename e Sort.
+- Reverter: Delete da lista nova ou restauração das entradas/nome anteriores.
 
-## Parser e dados ausentes
+Eventos normais desses métodos permanecem ativos. O CrateShop não emite ListImportFinished, não expande listas, não chama pesquisa/compra, não altera configurações nem escreve diretamente em SavedVariables do Auctionator. Expandir ou pesquisar manualmente continua seguindo as configurações do jogador.
 
-Parser puro recebe data.lines e retorna resultado ou ordinary/invalid.
-Remove cores WoW, normaliza CR/LF, separa quebras internas e preserva nomes UTF-8. O parser aceita inteiros positivos exatamente representáveis até 2^53−1, ordem e contagem variáveis. O adaptador recusa quantidades cuja serialização Lua/Auctionator perca precisão, mesmo dentro desse teto. Duplicatas, marcador repetido, bloco vazio e linhas não interpretadas dentro do bloco lógico são inválidos.
+A versão mínima, APIs e métodos usados são conferidos antes da operação. Metadata ausente/não numérica, versão antiga ou interface incompleta bloqueiam com mensagem útil.
 
-O formato observado concentra o bloco em uma linha lógica. Também são aceitas alternativas contíguas em linhas lógicas seguintes quando o marcador está separado; uma linha lógica externa que não é alternativa encerra esse bloco. Quando o marcador já tem alternativas na própria linha lógica, a fronteira dessa linha encerra o bloco; uma recompensa externa com formato semelhante não é incorporada. Nível, preço e extras em linhas externas não viram materiais. Não há inferência pelo nome/ID do item.
+## Detecção, parser e nomes
 
-Não é possível detectar um tooltip silenciosamente truncado exatamente após uma alternativa válida sem metadados adicionais. O addon não afirma completude além do conteúdo recebido. Se o formato mudar, deve ser revisado antes de ampliar o suporte.
+O hook é somente observador e não modifica retorno/argumentos do handler original. Exige AH aberta, Shift e hyperlink de item. Chat visível/focado e outros campos são ignorados. A exceção é a identidade exata de AuctionatorShoppingFrame.SearchOptions.SearchString: esse campo sem nome pode manter foco durante a busca normal. Liberá-lo evita exigir que o usuário limpe o filtro.
 
-Sem dados de tooltip não há timer, loop ou gravação. Uma mensagem orienta novo Shift+clique após carregamento e é limitada junto aos demais avisos.
+O parser usa o marcador real, divide CR/LF e quebras internas, remove cores hexadecimais e nomeadas (incluindo |cnIQ1:) e preserva rótulos localizados. Aceita inteiros positivos representáveis, rejeitando duplicatas, marcador repetido, bloco vazio e alternativas inválidas sem aceitar parcialmente o bloco.
 
-## Identidade, obsolescência e atomicidade
+Um bloco inline termina na própria linha lógica; linhas externas semelhantes a alternativas não são incorporadas. Se o marcador estiver isolado, podem seguir alternativas em linhas lógicas contíguas até uma linha externa não alternativa. Truncagem silenciosa após uma alternativa válida não é comprovadamente detectável pelo parser.
 
-O vínculo persistente é Item ID → nome + cópia ordenada das entradas. Antes de atualizar exige correspondência integral. Alterações manuais e renomeações não são incorporadas automaticamente. Outras listas permanecem intactas.
+Os rótulos plurais não são nomes pesquisáveis. O catálogo fornece IDs/quantidades e o cliente fornece nomes canônicos, com conferência do ID no link. A comparação de contagem e multiconjunto de quantidades detecta divergências numéricas; não detecta troca de materiais com mesmo perfil numérico. Veja [catálogo e procedência](catalog.md).
 
-Durante a confirmação são comparados de novo tooltip, nome, entradas, vínculo e identidade do objeto de dados da lista. Isso detecta remoção/recriação idêntica durante o diálogo. Entre sessões, a identidade do objeto Lua desaparece: uma lista recriada com nome e conteúdo exatamente iguais não pode ser distinguida da original pelo vínculo persistente disponível. A associação não constitui um identificador nativo permanente do Auctionator.
+Sem tooltip/nome carregado, não há lista parcial, timer ou loop. Para materiais, RequestLoadItemDataByID é solicitado no máximo uma vez por ID na sessão. O usuário aguarda e repete o gesto. Avisos são limitados a um a cada cinco segundos.
 
-As entradas são todas validadas/convertidas antes da primeira alteração. A execução é síncrona, com trava contra reentrada e ticket consumido antes de callbacks. Não há yield nem gravação em Cancelar.
+O diagnóstico de rejeição informa motivo, linha e trecho; espaços/controles/pipes são exibidos numericamente para impedir interpretação como markup pelo chat. Na comparação de cabeçalho, também informa a primeira divergência de bytes.
 
-O Auctionator não oferece transação de listas. Callbacks recebem eventos normais; criação pode ficar brevemente vazia até AppendItems. Se ocorrer erro, tenta-se reverter usando os métodos, mas erro persistente nos callbacks pode fazer a própria reversão falhar. O usuário recebe aviso explícito para conferir a lista; o vínculo não é promovido em caso de falha. Não se promete atomicidade diante de encerramento do cliente, interferência reentrante de outros addons ou erro persistente da dependência.
+## Propriedade e ciclo das listas
 
-## Verificação e pendências
+CrateShopDB liga Item ID do caixote a nome da lista, cópia ordenada das entradas e, nas novas gravações, versão do catálogo. O prefixo não comprova propriedade.
 
-- TDD parser: observado estado inicial com 14 falhas e 1 teste passando; depois 15 passando.
-- TDD integração: 13 falhas por adaptador ausente, depois passando.
-- TDD fluxo: 10 falhas por controlador ausente, depois passando.
-- Harness Lua 5.1 via Lupa: 41 testes passando, usando mixins, API de listas e serializador **reais instalados**, lidos do disco.
-- Fronteiras simuladas: EventBus, frames/eventos WoW, tooltip, metadata e StaticPopup. Um evento de importação ou uso da API pública de criação faz o harness falhar.
-- Nenhum teste usa banco, SavedVariables pessoais ou dados econômicos.
-- Inspeção estática não equivale a teste dentro do Forever. O roteiro no README é pendente, incluindo taint, posição/legibilidade do diálogo, lifecycle real dos frames e persistência entre sessões.
-## Revisão final
+A lista própria existente precisa coincidir integralmente com o vínculo. Edição, reordenação, nome ambíguo ou colisão de destino bloqueiam a operação. Colisões também são verificadas ignorando caixa ASCII.
 
-Revisão independente somente leitura realizada nesta sessão. Encontrou incorporação indevida de alternativa externa após bloco inline; corrigida com regressão observada falhando e depois passando.
-Regressões adicionais reproduziram e corrigiram confirmação presa após erro do diálogo e perda de precisão em quantidades extremas no serializador real.
-Verificação final: 41 testes em Lua 5.1, sintaxe dos cinco módulos, referências TOC e ausência de BOM/whitespace indevido.
-A revisão não confirmou o FrameXML do StaticPopup nesta build; aparência e ciclo real do diálogo continuam no roteiro de jogo, sem alegação de teste real.
+No próximo Shift+clique, uma lista própria intacta CrateShop: é preparada para CS:. Confirmar migra o nome e atualiza as entradas; Cancelar não muda nada. Listas legadas em plural são atualizáveis sob a mesma proteção.
 
-Decisões de execução: reutilizado o diretório solicitado, criado vazio; implementação direta nesta sessão e uma revisão independente; sem worktree extra. Nenhum commit foi criado, conforme autorização do pedido. A pasta .tools contém somente ferramenta de desenvolvimento ignorada pelo Git.
+Se o nome associado não for encontrado, é oferecida nova criação no destino CS: livre. Não exige limpar a associação por comando. Uma lista renomeada manualmente é preservada e pode coexistir com a nova CS:, pois o vínculo persistente não distingue renomeação de exclusão.
+
+Antes do aceite são conferidos tooltip, versão do catálogo, nomes/termos, vínculo, origem/destino, ação e identidade do objeto da lista. Remoção/recriação durante o diálogo invalida o ticket; novo gesto permite preparar a recuperação. Entre sessões, uma lista recriada com nome e conteúdo exatamente iguais não pode ser distinguida da original com os dados disponíveis.
+
+## Atomicidade e limites
+
+Entradas são preparadas/validadas antes da primeira alteração, com trava síncrona contra reentrada e ticket consumido antes de callbacks. Não há yield nem escrita ao cancelar/fechar AH.
+
+O Auctionator não oferece transação nativa. Eventos podem expor uma lista brevemente vazia durante criação/atualização. Erros provocam tentativa de reversão pelos métodos normais; falha persistente de callbacks também pode impedir reversão completa. Nesse caso há aviso explícito para conferir a lista, e o vínculo não é promovido. Não se promete atomicidade diante de encerramento do cliente ou interferência reentrante de terceiros.
+
+O TOC usa ícone nativo 236994, sem imagem redistribuída. Metadados/arquivos novos podem exigir reabrir o cliente para atualizar a exibição.
+
+## Verificações realizadas
+
+- Testes de comportamento foram escritos e observados falhando antes das implementações pertinentes.
+- Suíte final de 83 testes em Lua 5.1 via Lupa, com mixins, serializador, API e hook reais instalados do Auctionator.
+- Fronteiras simuladas: C_Item, tooltip, EventBus, eventos/frames WoW, metadata e StaticPopup. Usar a criação pública ou emitir evento de importação faz o harness falhar.
+- Sintaxe dos seis módulos, referências TOC, BOM/whitespace e diff verificados.
+- Revisões independentes somente leitura do catálogo e do ciclo das listas, sem bugs acionáveis ao término. Conferência numérica independente: 30 caixotes e 96 alternativas coincidem com a fonte declarada.
+- Nenhum teste carrega SavedVariables pessoais; .tools é somente desenvolvimento e fica fora do Git.
+
+## Validação no cliente e cobertura restante
+
+As evidências foram fornecidas pelo usuário, não por automação do jogo:
+
+- Captura de diálogo de Plantas de Profissional com cinco alternativas e aviso para escolher um conjunto.
+- Confirmação de funcionamento na aba Comprar do Auctionator após correção do foco.
+- Captura de atualização da lista com cinco nomes canônicos, x10 em cada entrada e resultados para os cinco materiais.
+- Aviso de cache frio para IDs 3369/3356 seguido de atualização bem-sucedida após novo gesto.
+- Usuário confirmou funcionamento do incremento 0.2.1 (CS:/recuperação/ícone) antes de solicitar a integração; não forneceu detalhamento visual separado de cada cenário.
+
+Permanecem sem comprovação individual no cliente: minérios com quantidades distintas, todos os caminhos de cancelamento/colisão/edição/obsolescência, persistência entre sessões, aparência isolada do ícone e ausência de busca adicional no instante do aceite com AUTO_LIST_SEARCH ligado/desligado. Esses comportamentos têm cobertura parcial ou integral no harness, mas não são apresentados como teste real no Forever.

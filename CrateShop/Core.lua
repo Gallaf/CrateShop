@@ -43,9 +43,28 @@ function Core:Observe(link)
   if not self.integration or self.pending then return end
   local id=tonumber(link:match("|Hitem:(%d+):"))
   if not id then return end
-  local parsed,status=self:Read(link)
+  local parsed,status,detail=self:Read(link)
   if not parsed then
-    if status=="invalid" then self:Warn("Requisitos incompletos ou ambíguos. Nenhuma lista foi criada.")
+    if status=="invalid" then
+      local diagnostic=""
+      if detail then
+        local text=tostring(detail.text or ""):gsub("|","<124>")
+          :gsub("[%c ]",function(c) return string.format("<%d>",c:byte()) end)
+        local difference=""
+        if detail.expected and detail.text then
+          for i=1,math.max(#detail.text,#detail.expected) do
+            local actual,wanted=detail.text:byte(i),detail.expected:byte(i)
+            if actual~=wanted then
+              difference=" [byte "..i..": "..tostring(actual).."/"..tostring(wanted)
+                .."; tamanhos "..#detail.text.."/"..#detail.expected.."]"
+              break
+            end
+          end
+          if difference=="" then difference=" [bytes idênticos]" end
+        end
+        diagnostic=" Diagnóstico: "..tostring(detail.reason)..", linha "..tostring(detail.line)..difference..": "..text
+      end
+      self:Warn("Requisitos incompletos ou ambíguos. Nenhuma lista foi criada."..diagnostic)
     elseif status=="unavailable" then
       self:Warn("Tooltip indisponível ou item ainda não carregado. Aguarde e faça Shift+clique novamente.")
     end
