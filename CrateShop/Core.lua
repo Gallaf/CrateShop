@@ -1,0 +1,109 @@
+local addonName, NS = ...
+local Core = {}
+NS.Core = Core
+
+function Core:Message(text)
+  if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("|cffc99b51CrateShop:|r "..text) end
+end
+
+function Core:Warn(text)
+  local now=GetTime and GetTime() or 0
+  if self.lastWarning and now-self.lastWarning<5 then return end
+  self.lastWarning=now
+  self:Message(text)
+end
+
+function Core:Initialize(db)
+  if db==nil then
+    if CrateShopDB==nil then CrateShopDB={version=1,lists={}} end
+    db=CrateShopDB
+  end
+  -- Do not replace malformed or future-version saved data silently.
+  if type(db)~="table" or (db.version~=nil and db.version~=1) or type(db.lists)~="table" then
+    self:Warn("Dados próprios incompatíveis; addon desativado. Preserve CrateShop.lua para diagnóstico.")
+    return
+  end
+  self.integration=NS.Integration.New(db)
+  NS.Dialog:Install(self)
+  if not self.hooked then NS.Detector:Install(self); self.hooked=true end
+end
+
+function Core:Read(link)
+  if not C_TooltipInfo or type(C_TooltipInfo.GetHyperlink)~="function" then
+    return nil,"unavailable"
+  end
+  local ok,data=pcall(C_TooltipInfo.GetHyperlink,link)
+  if not ok or type(data)~="table" or type(data.lines)~="table" or #data.lines==0 then
+    return nil,"unavailable"
+  end
+  return NS.Parser.Parse(data.lines)
+end
+
+function Core:Observe(link)
+  if not self.integration or self.pending then return end
+  local id=tonumber(link:match("|Hitem:(%d+):"))
+  if not id then return end
+  local parsed,status=self:Read(link)
+  if not parsed then
+    if status=="invalid" then self:Warn("Requisitos incompletos ou ambíguos. Nenhuma lista foi criada.")
+    elseif status=="unavailable" then
+      self:Warn("Tooltip indisponível ou item ainda não carregado. Aguarde e faça Shift+clique novamente.")
+    end
+    return
+  end
+  local ticket,err=self.integration:Prepare(id,parsed)
+  if not ticket then self:Warn(err); return end
+  ticket.link=link
+  self.pending=ticket
+  local shown,dialog=pcall(NS.Dialog.Show,NS.Dialog,ticket,parsed)
+  if not shown or not dialog then
+    self.pending=nil
+    self:Warn("Não foi possível abrir a confirmação. Tente novamente.")
+  end
+end
+
+local function sameRequirements(a,b)
+  if not a or a.name~=b.name or #a.alternatives~=#b.alternatives then return false end
+  for i,v in ipairs(a.alternatives) do
+    if v.name~=b.alternatives[i].name or v.quantity~=b.alternatives[i].quantity then return false end
+  end
+  return true
+end
+
+function Core:Accept(ticket)
+  if not ticket or self.pending~=ticket then return end
+  self.pending=nil -- consume before any external callback; prevents repeated clicks
+  if not NS.Detector:IsOpen() then
+    self:Warn("A Casa de Leilões foi fechada. Faça Shift+clique novamente.")
+    return
+  end
+  local current=self:Read(ticket.link)
+  if not sameRequirements(current,ticket.parsed) then
+    self:Warn("O tooltip mudou ou está indisponível. Faça Shift+clique novamente.")
+    return
+  end
+  local ok,err=self.integration:Commit(ticket)
+  if not ok then self:Warn(err); return end
+  self:Message((ticket.action=="update" and "Lista atualizada: " or "Lista criada: ")..ticket.name
+    ..". Escolha um conjunto; nenhuma pesquisa adicional foi iniciada pelo CrateShop.")
+end
+
+function Core:Cancel(ticket)
+  if ticket and self.pending==ticket then self.pending=nil end
+end
+
+local frame=CreateFrame("Frame")
+frame:RegisterEvent("ADDON_LOADED")
+frame:RegisterEvent("AUCTION_HOUSE_SHOW")
+frame:RegisterEvent("AUCTION_HOUSE_CLOSED")
+frame:SetScript("OnEvent",function(_,event,name)
+  if event=="ADDON_LOADED" and name==addonName then
+    Core:Initialize()
+  elseif event=="AUCTION_HOUSE_SHOW" then
+    NS.Detector.auctionOpen=true
+  elseif event=="AUCTION_HOUSE_CLOSED" then
+    NS.Detector.auctionOpen=false
+    Core.pending=nil
+    NS.Dialog:Hide()
+  end
+end)

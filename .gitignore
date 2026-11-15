@@ -1,0 +1,5 @@
+.tools/
+__pycache__/
+*.zip
+*.log
+.superpowers/
