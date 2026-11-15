@@ -1,5 +1,9 @@
 # Changelog
 
+## Não publicado
+
+- Confirmações do chat encurtadas, com prefixo CS: e sem repetir o prefixo da lista ou explicações já presentes no diálogo. Avisos de erro preservados.
+
 ## 0.2.1 — 2026-11-15
 
 - Catálogo versionado com 30 caixotes e 96 alternativas; nomes localizados obtidos pelo ID de cada material, corrigindo buscas exatas com rótulos plurais.

@@ -3,7 +3,7 @@ local Core = {}
 NS.Core = Core
 
 function Core:Message(text)
-  if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("|cffc99b51CrateShop:|r "..text) end
+  if DEFAULT_CHAT_FRAME then DEFAULT_CHAT_FRAME:AddMessage("|cffc99b51CS:|r "..text) end
 end
 
 function Core:Warn(text)
@@ -103,8 +103,8 @@ function Core:Accept(ticket)
   end
   local ok,err=self.integration:Commit(ticket)
   if not ok then self:Warn(err); return end
-  self:Message((ticket.action=="update" and "Lista atualizada: " or "Lista criada: ")..ticket.name
-    ..". Escolha um conjunto; nenhuma pesquisa adicional foi iniciada pelo CrateShop.")
+  local listLabel=ticket.name:gsub("^CS:%s*","")
+  self:Message((ticket.action=="update" and "Lista atualizada: " or "Lista criada: ")..listLabel..".")
 end
 
 function Core:Cancel(ticket)

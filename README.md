@@ -13,7 +13,7 @@ Compatibilidade inspecionada: cliente **1.60.1.70938**, interface **16001**, Auc
 
 ## Uso
 
-Abra a Casa de Leilões e faça Shift+clique no hyperlink de um caixote. Mantenha o chat sem foco. Confira nome e número de alternativas e escolha **Criar lista** ou **Cancelar**. Uma lista já associada oferece **Atualizar lista**.
+Abra a Casa de Leilões e faça Shift+clique no hyperlink de um caixote. Mantenha o chat sem foco. Confira nome e número de alternativas e escolha **Criar lista** ou **Cancelar**. Uma lista já associada oferece **Atualizar lista**. Após concluir, o chat exibe uma confirmação curta, como “CS: Lista atualizada: Plantas de Profissional.” Avisos de erro continuam visíveis.
 
 As entradas usam os IDs/quantidades do catálogo e nomes exatos localizados obtidos do cliente. O CrateShop não inicia pesquisa nem compra. O Auctionator continua realizando sua busca habitual do Shift+clique; pesquisar/expandir manualmente a lista depois segue as preferências normais dele.
 
