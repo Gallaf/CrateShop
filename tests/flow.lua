@@ -5,7 +5,9 @@ local function module(path)
 end
 local handlers, hooks, popup, messages, queried, focused, shifted
 local link="|cffffffff|Hitem:248692::::::::|h[Caixa]|h|r"
-local function setupFlow()
+local function setupFlow(locale)
+  GetLocale=function() return locale or "ptBR" end
+  module("Localization"); module("CrateCatalog"); module("AuctionatorIntegration")
   local a,m,db=setupIntegration()
   handlers,hooks,messages,queried={},{},{},0
   focused,shifted=nil,true
@@ -92,7 +94,7 @@ end)
 test("item comum não abre diálogo nem emite mensagem", function()
   setupFlow()
   C_TooltipInfo.GetHyperlink=function() return {lines={{leftText="Pedra"},{leftText="Preço"}}} end
-  click(); eq(popup,nil); eq(#messages,0)
+  hooks[#hooks].callback("|Hitem:1:|h[Pedra]|h"); eq(popup,nil); eq(#messages,0)
 end)
 test("requisitos inválidos avisam sem criar lista", function()
   local m=setupFlow()
@@ -237,4 +239,53 @@ test("próximo Shift clique após apagar oferece criar e cancelar não recria",f
   cancel(); eq(m:GetCount(),0)
   click(); accept(); eq(m:GetCount(),1)
   assert(m:GetIndexForName("CS: Minérios de Especialista"))
+end)
+
+-- Portuguese fixtures are real captures; no synthetic English tooltip is claimed.
+for _,locale in ipairs({"ptBR","ptPT","enUS","enGB","deDE"}) do
+  test("localized dialog and confirmation: "..locale,function()
+    local m=setupFlow(locale)
+    local portuguese=locale=="ptBR" or locale=="ptPT"
+    click()
+    eq(popup.button1.text,portuguese and "Criar lista" or "Create list")
+    eq(StaticPopupDialogs[popup.key].button2,portuguese and "Cancelar" or "Cancel")
+    assert(popup.text:find("Caixote Extraviado: Minérios de Especialista",1,true))
+    assert(popup.text:find(portuguese and "2 alternativas" or "2 alternatives",1,true))
+    accept(); eq(m:GetCount(),1)
+    eq(messages[1],"|cffc99b51CS:|r "..(portuguese and "Lista criada: " or "List created: ").."Minérios de Especialista.")
+    click(); eq(popup.button1.text,portuguese and "Atualizar lista" or "Update list")
+    accept(); eq(m:GetCount(),1)
+  end)
+  test("unrecognized known crate warns without inventing tooltip: "..locale,function()
+    local m=setupFlow(locale)
+    C_TooltipInfo.GetHyperlink=function() return {lines={{leftText="Captured requirements unavailable"}}} end
+    click(); eq(popup,nil); eq(m:GetCount(),0); eq(#messages,1)
+    assert(messages[1]:find((locale=="ptBR" or locale=="ptPT") and "formato português" or "Portuguese format",1,true))
+  end)
+end
+
+test("missing Portuguese translation falls back to English",function()
+  setupFlow("ptPT")
+  local translation=rawget(CS.L,"CREATE_LIST")
+  CS.L.CREATE_LIST=nil
+  click(); eq(popup.button1.text,"Create list")
+  CS.L.CREATE_LIST=translation
+end)
+
+test("locale reload preserves owned list and manual list without writes",function()
+  local m,db=setupFlow("ptBR")
+  click(); accept()
+  m:Create("Manual"); m:GetByName("Manual"):AppendItems({"unchanged"})
+  local record=db.lists[248692]
+  local entries=CopyTable(record.items)
+  GetLocale=function() return "enUS" end
+  module("Localization"); module("AuctionatorIntegration"); module("ConfirmationDialog"); module("Core")
+  CS.Core:Initialize(db)
+  eq(db.lists[248692],record); eq(m:GetCount(),2)
+  local parsed=oreParsed(); parsed.name="Game-provided changed crate name"
+  local ticket=assert(CS.Core.integration:Prepare(248692,parsed))
+  eq(ticket.action,"update"); eq(ticket.name,record.name)
+  eq(m:GetCount(),2); eq(record.items[1],entries[1])
+  assert(CS.Core.integration:Commit(ticket)); eq(m:GetCount(),2)
+  eq(m:GetByName("Manual"):GetItemByIndex(1),"unchanged")
 end)

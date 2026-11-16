@@ -1,6 +1,7 @@
 -- Numeric game facts: What's It For? data v1.1.40, Forever 1.60.1.70938.
 -- Provenance and update procedure: docs/catalog.md. No runtime dependency.
 local _, NS = ...
+local L = NS.L
 local Catalog = {version="2026-11-15.1", build="1.60.1.70938"}
 NS.Catalog = Catalog
 
@@ -39,14 +40,18 @@ local crates = {
 }
 local requested = {}
 
+function Catalog.Contains(crateID)
+  return crates[crateID]~=nil
+end
+
 function Catalog.Resolve(crateID, parsed)
   local options=crates[crateID]
   if not options then
-    error("Caixote fora do catálogo "..Catalog.version..". Atualize o CrateShop para obter suporte.",0)
+    error(string.format(L.UNKNOWN_CRATE,Catalog.version),0)
   end
   if type(parsed)~="table" or type(parsed.alternatives)~="table"
     or #parsed.alternatives~=#options then
-    error("O tooltip diverge do catálogo de materiais. Nenhuma lista será gravada.",0)
+    error(L.CATALOG_MISMATCH,0)
   end
   local expected,received={},{}
   for i,option in ipairs(options) do expected[i]=option[2] end
@@ -54,18 +59,18 @@ function Catalog.Resolve(crateID, parsed)
     if type(alternative)~="table" or type(alternative.name)~="string" or alternative.name==""
       or type(alternative.quantity)~="number" or alternative.quantity<1
       or alternative.quantity~=math.floor(alternative.quantity) then
-      error("Requisitos inválidos para comparação com o catálogo.",0)
+      error(L.BAD_REQUIREMENTS,0)
     end
     received[i]=alternative.quantity
   end
   table.sort(expected); table.sort(received)
   for i,quantity in ipairs(expected) do
     if received[i]~=quantity then
-      error("As quantidades do tooltip divergem do catálogo. Nenhuma lista será gravada.",0)
+      error(L.QUANTITY_MISMATCH,0)
     end
   end
   if not C_Item or type(C_Item.GetItemInfo)~="function" then
-    error("API de nomes de itens indisponível. Nenhuma lista será gravada.",0)
+    error(L.NO_ITEM_API,0)
   end
   local result={version=Catalog.version,alternatives={}}
   local missing={}
@@ -80,14 +85,13 @@ function Catalog.Resolve(crateID, parsed)
       end
     else
       if tonumber(link:match("|Hitem:(%d+):"))~=id then
-        error("O cliente devolveu uma identidade de material inconsistente. Nenhuma lista será gravada.",0)
+        error(L.ITEM_ID_MISMATCH,0)
       end
       result.alternatives[#result.alternatives+1]={id=id,name=name,quantity=quantity}
     end
   end
   if #missing>0 then
-    error("Nomes de materiais ainda não carregados (IDs: "..table.concat(missing,", ")
-      .."). Aguarde e faça Shift+clique novamente.",0)
+    error(string.format(L.MISSING_NAMES,table.concat(missing,", ")),0)
   end
   return result
 end

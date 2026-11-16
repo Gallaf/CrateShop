@@ -1,6 +1,16 @@
 # CrateShop
 
-Addon para WoW Forever em português brasileiro. Reconhece os requisitos no tooltip e usa um catálogo versionado de IDs para criar, após confirmação, uma Shopping List no Auctionator com os nomes corretos dos materiais. Cada entrada é uma **alternativa**: basta preencher um conjunto, não comprar tudo.
+Addon para WoW Forever com interface em português ou inglês. Reconhece os requisitos no tooltip e usa um catálogo versionado de IDs para criar, após confirmação, uma Shopping List no Auctionator com os nomes corretos dos materiais. Cada entrada é uma **alternativa**: basta preencher um conjunto, não comprar tudo.
+
+## Idioma da interface e limite do parser
+
+`GetLocale()` seleciona português para `ptBR` e `ptPT` (mesmas traduções por enquanto). Qualquer outro locale, incluindo `enUS`, `enGB` e `deDE`, usa inglês. Inglês também é o fallback por chave quando falta uma tradução portuguesa. Os textos ficam em `CrateShop/Localization.lua`, sem bibliotecas externas, com placeholders para valores dinâmicos. O TOC deve carregar esse arquivo primeiro; após atualizar, feche e reabra o cliente.
+
+A tradução cobre diálogos, botões, confirmações, avisos, erros e diagnósticos próprios. Não há comandos slash ou ajuda interna implementados atualmente. CrateShop, APIs e comandos existentes são preservados. Nomes de caixotes e materiais continuam exatamente como fornecidos pelo jogo; a tradução da interface não fornece termos de pesquisa nem traduz materiais.
+
+**Interface em inglês não significa suporte a tooltip inglês.** As capturas e o parser atuais validam somente o marcador português “Encha o caixote com qualquer conjunto da lista a seguir:” e suas alternativas. Não há captura real inglesa no repositório; nenhuma frase inglesa foi presumida. Um caixote conhecido no catálogo com formato não reconhecido gera erro no idioma selecionado e não cria lista. Itens comuns continuam silenciosos. Caixotes desconhecidos com formato não reconhecido não podem ser identificados com segurança e também são ignorados.
+
+Trocar o idioma não escreve, traduz nem recria listas existentes. O vínculo continua sendo pelo Item ID do caixote, com as mesmas verificações de propriedade e deduplicação. Ao confirmar uma atualização, uma lista própria existente mantém o nome salvo, mesmo se o jogo fornecer um nome diferente após mudar o locale; a migração já existente de `CrateShop:` para `CS:` permanece. Nomes canônicos dos materiais só são atualizados mediante confirmação, pelas APIs do jogo.
 
 ## Instalação
 
@@ -45,6 +55,8 @@ Na raiz do repositório, com Lua 5.1:
 lua .\tests\run.lua
 ~~~
 
+A suíte verifica os locales `ptBR`, `ptPT`, `enUS`, `enGB` e `deDE`, inglês sem `GetLocale`, fallback de chave ausente, placeholders/acentos, aviso de formato não reconhecido e preservação/deduplicação de listas após troca de locale. Os tooltips portugueses usados nesses testes são as capturas já disponíveis; os testes não simulam uma suposta frase inglesa.
+
 O harness lê o código instalado do Auctionator, sem carregar SavedVariables pessoais. Para outra instalação, configure AUCTIONATOR_PATH apontando para a pasta Auctionator. Requer Auctionator 346 ou superior; o harness lê a versão e as fontes da instalação indicada.
 
 Alternativa usada nesta entrega, com Python e Lupa locais apenas para desenvolvimento:
@@ -58,6 +70,8 @@ python .\tests\check_package.py
 .tools é ignorada pelo Git e não deve ser copiada para AddOns. O addon depende somente do Auctionator e das APIs do cliente.
 
 ## Roteiro de validação dentro do Forever
+
+A localização foi verificada fora do jogo. Ainda é necessário validar no Forever a aparência e os acentos dos diálogos/avisos nos dois idiomas, a seleção de locale real, a preservação das listas entre sessões e obter uma captura real inglesa antes de ampliar o parser.
 
 1. Ativar erros Lua e verificar carregamento sem erros com Auctionator 346 ou superior.
 2. Abrir a Casa de Leilões, deixar chat sem foco e fazer Shift+clique nos caixotes de plantas e minérios.

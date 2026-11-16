@@ -1,4 +1,5 @@
 local _, NS = ...
+local L = NS.L
 local Integration = {}
 local MIN_AUCTIONATOR_VERSION = 346
 NS.Integration = Integration
@@ -34,14 +35,13 @@ function Integration:Compatible()
   local manager = Auctionator and Auctionator.Shopping and Auctionator.Shopping.ListManager
   local versionNumber=type(version)=="string" and tonumber(version:match("^%d+$"))
   if not versionNumber or versionNumber<MIN_AUCTIONATOR_VERSION then
-    error("É necessário Auctionator "..MIN_AUCTIONATOR_VERSION
-      .." ou superior. Versão detectada: "..tostring(version or "indisponível")..".",0)
+    error(string.format(L.VERSION_REQUIRED,MIN_AUCTIONATOR_VERSION,tostring(version or L.UNAVAILABLE)),0)
   end
   if not requireMethods(api, {"ConvertToSearchString", "ConvertFromSearchString", "GetShoppingListItems"})
     or not requireMethods(manager, {"Create","Delete","Sort","GetCount","GetByIndex","GetByName","GetIndexForName"})
     or not requireMethods(AuctionatorShoppingListMixin, {"GetName","GetAllItems","ClearItems","AppendItems","Rename","IsTemporary"})
     or type(self.db)~="table" or type(self.db.lists)~="table" then
-    error("As interfaces de listas do Auctionator estão indisponíveis ou incompatíveis.",0)
+    error(L.NO_INTERFACES,0)
   end
   return manager, api
 end
@@ -52,7 +52,7 @@ function Integration:Find(manager, name)
   for i=1,manager:GetCount() do
     local list=manager:GetByIndex(i)
     if list:GetName():lower()==name:lower() then
-      if found then error("Há listas com nomes ambíguos; nenhuma será alterada.") end
+      if found then error(L.AMBIGUOUS_LISTS) end
       found=list
     end
   end
@@ -64,28 +64,29 @@ function Integration:Inspect(id, parsed)
   if type(id)~="number" or id<1 or id~=math.floor(id)
     or type(parsed)~="table" or type(parsed.name)~="string"
     or type(parsed.alternatives)~="table" or #parsed.alternatives==0 then
-    error("Dados do caixote inválidos.")
+    error(L.BAD_CRATE)
   end
   local record=self.db.lists[id]
   local name="CS: "..parsed.name:gsub("^Caixote Extraviado:%s*", "")
-  if name=="CS: " then error("Identidade da lista inválida.",0) end
+  if name=="CS: " then error(L.BAD_IDENTITY,0) end
   local list
   if record then
     if type(record)~="table" or type(record.name)~="string" then
-      error("Associação da lista inválida.",0)
+      error(L.BAD_ASSOCIATION,0)
     end
     list=self:Find(manager,record.name)
     if list and (list:GetName()~=record.name or list:IsTemporary()
       or not same(list:GetAllItems(),record.items)) then
-      error("A lista associada foi alterada. Nenhuma lista será sobrescrita.",0)
+      error(L.EDITED_LIST,0)
     end
   end
+  if list then name=record.name:gsub("^CrateShop:","CS:") end
   local destination=self:Find(manager,name)
   if destination and (not list or destination.data~=list.data) then
-    error("Já existe uma lista com o nome CS sem associação correspondente ao CrateShop. Renomeie-a antes de continuar.",0)
+    error(L.COLLISION,0)
   end
   if not NS.Catalog or type(NS.Catalog.Resolve)~="function" then
-    error("Catálogo do CrateShop indisponível. Confira a instalação.",0)
+    error(L.NO_CATALOG,0)
   end
   local resolved=NS.Catalog.Resolve(id,parsed)
   local items,seen={},{}
@@ -93,17 +94,17 @@ function Integration:Inspect(id, parsed)
     if type(v.name)~="string" or v.name=="" or v.name:find('[;|"\r\n]')
       or type(v.quantity)~="number" or v.quantity<1 or v.quantity>9007199254740991
       or v.quantity~=math.floor(v.quantity) or seen[v.name] then
-      error("Alternativa inválida ou incompatível com a busca exata do Auctionator.")
+      error(L.BAD_ALTERNATIVE)
     end
     seen[v.name]=true
     local item=api.ConvertToSearchString("CrateShop",{
       searchString=v.name, isExact=true, quantity=v.quantity
     })
-    if type(item)~="string" or item=="" then error("Falha ao preparar as alternativas.") end
+    if type(item)~="string" or item=="" then error(L.PREPARE_FAILED) end
     local decoded=api.ConvertFromSearchString("CrateShop",item)
     if type(decoded)~="table" or decoded.searchString~=v.name
       or decoded.isExact~=true or decoded.quantity~=v.quantity then
-      error("O Auctionator não preservou nome e quantidade da alternativa. Nenhuma lista será gravada.")
+      error(L.SEARCH_CHANGED)
     end
     items[#items+1]=item
   end
@@ -114,7 +115,7 @@ function Integration:Inspect(id, parsed)
 end
 
 function Integration:Prepare(id, parsed)
-  if self.busy then return nil,"Uma gravação já está em andamento." end
+  if self.busy then return nil,L.BUSY end
   local ok,ticket=pcall(self.Inspect,self,id,parsed)
   if not ok then return nil,tostring(ticket) end
   -- Keep a private, immutable copy of the source to revalidate on confirmation.
@@ -127,7 +128,7 @@ end
 
 function Integration:Commit(ticket)
   if self.busy or type(ticket)~="table" or ticket.used then
-    return nil,"Confirmação já utilizada ou indisponível."
+    return nil,L.USED_CONFIRMATION
   end
   ticket.used=true
   self.busy=true
@@ -140,7 +141,7 @@ function Integration:Commit(ticket)
       or current.record~=ticket.record or current.identity~=ticket.identity
       or not same(current.items,ticket.items)
       or (current.before and not same(current.before,ticket.before)) then
-      error("Os dados mudaram. Faça Shift+clique novamente para confirmar.")
+      error(L.DATA_CHANGED)
     end
     if ticket.action=="update" then
       list=current.manager:GetByName(ticket.sourceName)
@@ -158,7 +159,7 @@ function Integration:Commit(ticket)
     end
     list:AppendItems(copy(ticket.items))
     if list:GetName()~=ticket.name or not same(list:GetAllItems(),ticket.items) then
-      error("A lista gravada não corresponde às alternativas.",0)
+      error(L.SAVED_MISMATCH,0)
     end
     self.db.lists[ticket.id]={name=ticket.name, items=copy(ticket.items), catalogVersion=ticket.catalogVersion}
   end)
@@ -169,7 +170,7 @@ function Integration:Commit(ticket)
         if current.manager:GetIndexForName(ticket.name) then current.manager:Delete(ticket.name) end
       else
         local original=current.manager:GetByName(list:GetName())
-        if original.data~=ticket.identity then error("A identidade mudou durante a gravação.") end
+        if original.data~=ticket.identity then error(L.IDENTITY_CHANGED) end
         original:ClearItems()
         original:AppendItems(copy(ticket.before))
         if original:GetName()~=ticket.sourceName then
@@ -182,8 +183,7 @@ function Integration:Commit(ticket)
   end
   self.busy=false
   if not ok then
-    return nil, "Não foi possível gravar a lista. "..tostring(err)
-      .. (rollback and "" or " A reversão também falhou; confira a lista no Auctionator antes de tentar novamente.")
+    return nil, string.format(rollback and L.SAVE_FAILED or L.ROLLBACK_FAILED,tostring(err))
   end
   return true
 end
