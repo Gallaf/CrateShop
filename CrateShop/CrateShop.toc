@@ -1,12 +1,15 @@
 ## Interface: 16001
 ## Title: CrateShop
-## Notes: Listas de alternativas dos Caixotes Extraviados no Auctionator.
+## Notes: Crate alternative lists in Auctionator.
+## Notes-ptBR: Listas de alternativas dos Caixotes Extraviados no Auctionator.
+## Notes-ptPT: Listas de alternativas dos Caixotes Extraviados no Auctionator.
 ## Author: CrateShop
 ## IconTexture: 236994
 ## Version: 0.2.1
 ## Dependencies: Auctionator
 ## SavedVariables: CrateShopDB
 
+Localization.lua
 TooltipParser.lua
 CrateCatalog.lua
 AuctionatorIntegration.lua

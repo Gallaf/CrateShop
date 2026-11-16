@@ -1,4 +1,5 @@
 local addonName, NS = ...
+local L = NS.L
 local Core = {}
 NS.Core = Core
 
@@ -20,7 +21,7 @@ function Core:Initialize(db)
   end
   -- Do not replace malformed or future-version saved data silently.
   if type(db)~="table" or (db.version~=nil and db.version~=1) or type(db.lists)~="table" then
-    self:Warn("Dados próprios incompatíveis; addon desativado. Preserve CrateShop.lua para diagnóstico.")
+    self:Warn(L.BAD_DB)
     return
   end
   self.integration=NS.Integration.New(db)
@@ -55,18 +56,19 @@ function Core:Observe(link)
           for i=1,math.max(#detail.text,#detail.expected) do
             local actual,wanted=detail.text:byte(i),detail.expected:byte(i)
             if actual~=wanted then
-              difference=" [byte "..i..": "..tostring(actual).."/"..tostring(wanted)
-                .."; tamanhos "..#detail.text.."/"..#detail.expected.."]"
+              difference=string.format(L.DIFFERENCE,i,tostring(actual),tostring(wanted),#detail.text,#detail.expected)
               break
             end
           end
-          if difference=="" then difference=" [bytes idênticos]" end
+          if difference=="" then difference=L.IDENTICAL_BYTES end
         end
-        diagnostic=" Diagnóstico: "..tostring(detail.reason)..", linha "..tostring(detail.line)..difference..": "..text
+        diagnostic=string.format(L.DIAGNOSTIC,L["REASON_"..tostring(detail.reason)] or tostring(detail.reason),tostring(detail.line),difference,text)
       end
-      self:Warn("Requisitos incompletos ou ambíguos. Nenhuma lista foi criada."..diagnostic)
+      self:Warn(string.format(L.INVALID_REQUIREMENTS,diagnostic))
+    elseif status=="ordinary" and NS.Catalog.Contains(id) then
+      self:Warn(L.UNSUPPORTED_TOOLTIP)
     elseif status=="unavailable" then
-      self:Warn("Tooltip indisponível ou item ainda não carregado. Aguarde e faça Shift+clique novamente.")
+      self:Warn(L.TOOLTIP_UNAVAILABLE)
     end
     return
   end
@@ -77,7 +79,7 @@ function Core:Observe(link)
   local shown,dialog=pcall(NS.Dialog.Show,NS.Dialog,ticket,parsed)
   if not shown or not dialog then
     self.pending=nil
-    self:Warn("Não foi possível abrir a confirmação. Tente novamente.")
+    self:Warn(L.CONFIRM_FAILED)
   end
 end
 
@@ -93,18 +95,18 @@ function Core:Accept(ticket)
   if not ticket or self.pending~=ticket then return end
   self.pending=nil -- consume before any external callback; prevents repeated clicks
   if not NS.Detector:IsOpen() then
-    self:Warn("A Casa de Leilões foi fechada. Faça Shift+clique novamente.")
+    self:Warn(L.AH_CLOSED)
     return
   end
   local current=self:Read(ticket.link)
   if not sameRequirements(current,ticket.parsed) then
-    self:Warn("O tooltip mudou ou está indisponível. Faça Shift+clique novamente.")
+    self:Warn(L.TOOLTIP_CHANGED)
     return
   end
   local ok,err=self.integration:Commit(ticket)
   if not ok then self:Warn(err); return end
   local listLabel=ticket.name:gsub("^CS:%s*","")
-  self:Message((ticket.action=="update" and "Lista atualizada: " or "Lista criada: ")..listLabel..".")
+  self:Message(string.format(ticket.action=="update" and L.LIST_UPDATED or L.LIST_CREATED,listLabel))
 end
 
 function Core:Cancel(ticket)
