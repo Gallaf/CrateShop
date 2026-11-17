@@ -5,7 +5,7 @@
 - Interface em português para ptBR/ptPT e inglês para os demais locales, com fallback inglês por chave.
 - Textos próprios centralizados em Lua, com placeholders para valores dinâmicos e preservação dos nomes fornecidos pelo jogo.
 - Troca de idioma mantém as associações por Item ID, os nomes das listas próprias e a proteção contra duplicação; alterações continuam exigindo confirmação.
-- Parser português preservado. Tooltip inglês ainda sem suporte comprovado por falta de captura real; caixotes conhecidos com formato não reconhecido geram aviso localizado, sem criar lista.
+- Parser ampliado para tooltips portugueses e ingleses, com texto inglês extraído do cliente e publicado pelo ForeverDiff. Testes automatizados de plantas/minérios, requisitos inválidos e fluxo inglês; sem execução no cliente inglês. Formatos não reconhecidos continuam bloqueados, sem criar lista.
 - Licença MIT, copyright 2026 Gallaf. Avatar original preparado separadamente para a página do CurseForge.
 - Validação fora do jogo ampliada para locales, fallback, placeholders/acentos e preservação de listas. O proprietário confirmou funcionamento no Forever após a localização.
 - Pacote de distribuição inclui somente arquivos do addon, LICENSE e CHANGELOG; ferramentas, testes, dados pessoais e material de divulgação ficam fora.

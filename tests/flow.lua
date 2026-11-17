@@ -241,7 +241,7 @@ test("próximo Shift clique após apagar oferece criar e cancelar não recria",f
   assert(m:GetIndexForName("CS: Minérios de Especialista"))
 end)
 
--- Portuguese fixtures are real captures; no synthetic English tooltip is claimed.
+-- Portuguese fixtures are client captures; English fixtures are sourced reconstructions.
 for _,locale in ipairs({"ptBR","ptPT","enUS","enGB","deDE"}) do
   test("localized dialog and confirmation: "..locale,function()
     local m=setupFlow(locale)
@@ -260,7 +260,7 @@ for _,locale in ipairs({"ptBR","ptPT","enUS","enGB","deDE"}) do
     local m=setupFlow(locale)
     C_TooltipInfo.GetHyperlink=function() return {lines={{leftText="Captured requirements unavailable"}}} end
     click(); eq(popup,nil); eq(m:GetCount(),0); eq(#messages,1)
-    assert(messages[1]:find((locale=="ptBR" or locale=="ptPT") and "formato português" or "Portuguese format",1,true))
+    assert(messages[1]:find((locale=="ptBR" or locale=="ptPT") and "Formato de requisitos não reconhecido" or "Unrecognized requirements format",1,true))
   end)
 end
 
@@ -289,3 +289,24 @@ test("locale reload preserves owned list and manual list without writes",functio
   assert(CS.Core.integration:Commit(ticket)); eq(m:GetCount(),2)
   eq(m:GetByName("Manual"):GetItemByIndex(1),"unchanged")
 end)
+
+for _,locale in ipairs({"enUS","enGB"}) do
+  test("English tooltip confirms creates and updates without extra search: "..locale,function()
+    local m,db=setupFlow(locale)
+    C_TooltipInfo.GetHyperlink=function() return {lines=Fixtures.englishOres} end
+    C_Item.GetItemInfo=function(id)
+      local names={[2776]="Gold Ore",[3858]="Mithril Ore"}
+      return names[id],names[id] and ("|Hitem:"..id..":|h[item]|h")
+    end
+    m:Create("Manual list"); m:GetByName("Manual list"):AppendItems({"Keep me"})
+    click(); assert(popup,"English tooltip should open confirmation")
+    eq(popup.button1.text,"Create list"); eq(m:GetCount(),1)
+    cancel(); eq(m:GetCount(),1)
+    click(); accept(); eq(m:GetCount(),2)
+    local list=m:GetByName(db.lists[248692].name)
+    eq(list:GetItemByIndex(1),'"Gold Ore";;;;;;;;;;;#;;10')
+    eq(list:GetItemByIndex(2),'"Mithril Ore";;;;;;;;;;;#;;20')
+    click(); eq(popup.button1.text,"Update list"); accept(); eq(m:GetCount(),2)
+    eq(m:GetByName("Manual list"):GetItemByIndex(1),"Keep me")
+  end)
+end

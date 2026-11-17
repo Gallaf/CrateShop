@@ -4,7 +4,11 @@ NS.Parser = Parser
 local function invalid(reason, line, text, expected)
   return nil, "invalid", {reason=reason, line=line, text=text, expected=expected}
 end
-local marker = "Encha o caixote com qualquer conjunto da lista a seguir:"
+-- Tooltip language is independent from the interface locale.
+local headers = {
+  {marker="Encha o caixote com qualquer conjunto da lista a seguir:", prefix="Usar: "},
+  {marker="Fill the crate with any bundle from the following list:", prefix="Use: "},
+}
 
 local function clean(text)
   return (text:gsub("|cn[%a_][%w_]*:", ""):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
@@ -21,12 +25,14 @@ function Parser.Parse(lines)
       for text in (clean(line.leftText) .. "\n"):gmatch("(.-)\n") do
         text = clean(text)
         fragments[#fragments + 1] = {text=text, owner=i}
-        local _, count = text:gsub(marker, "")
-        if count > 0 then
-          found = found + count
-          start, owner = #fragments, i
-          if text ~= marker and text ~= "Usar: " .. marker then
-            return invalid("marker", i, text, "Usar: "..marker)
+        for _, header in ipairs(headers) do
+          local _, count = text:gsub(header.marker, "")
+          if count > 0 then
+            found = found + count
+            start, owner = #fragments, i
+            if text ~= header.marker and text ~= header.prefix .. header.marker then
+              return invalid("marker", i, text, header.prefix .. header.marker)
+            end
           end
         end
       end

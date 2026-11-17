@@ -124,3 +124,51 @@ test("código de cor incompleto não é descartado silenciosamente", function()
   })
   eq(p,nil); eq(status,"invalid")
 end)
+
+-- English text transcribed from ForeverDiff item records; line layout reconstructed.
+Fixtures.englishOres = {
+  {leftText="Waylaid Crate: Expert Ore"},
+  {leftText="Use: Fill the crate with any bundle from the following list:\n- 10 Gold Ore\n- 20 Mithril Ore"},
+  {leftText="Requires Level 20"},
+}
+Fixtures.englishHerbs = {
+  {leftText="Waylaid Crate: Journeyman Herbs"},
+  {leftText="Use: Fill the crate with any bundle from the following list:\n- 10 Stranglekelp\n- 10 Bruiseweed\n- 10 Wild Steelbloom\n- 10 Grave Moss\n- 10 Kingsblood"},
+  {leftText="Requires Level 10"},
+}
+test("English ore text preserves names and unequal quantities", function()
+  local p=assert(CS.Parser.Parse(Fixtures.englishOres))
+  eq(p.name,"Waylaid Crate: Expert Ore"); eq(#p.alternatives,2)
+  eq(p.alternatives[1].name,"Gold Ore"); eq(p.alternatives[1].quantity,10)
+  eq(p.alternatives[2].name,"Mithril Ore"); eq(p.alternatives[2].quantity,20)
+end)
+test("English herb text preserves all five alternatives", function()
+  local p=assert(CS.Parser.Parse(Fixtures.englishHerbs))
+  eq(#p.alternatives,5); eq(p.alternatives[3].name,"Wild Steelbloom")
+  eq(p.alternatives[5].name,"Kingsblood"); eq(p.alternatives[5].quantity,10)
+end)
+local englishMarker="Fill the crate with any bundle from the following list:"
+test("English bare marker colors and arbitrary alternative count", function()
+  local p=assert(CS.Parser.Parse({{leftText="New crate"},
+    {leftText="|cnIQ1:"..englishMarker.."|r\r\n- 3 |cffffffffFirst|r\n- 17 Second\n- 1 Third"},
+    {leftText="- 100 Reward"}}))
+  eq(#p.alternatives,3); eq(p.alternatives[1].quantity,3)
+  eq(p.alternatives[2].name,"Second"); eq(p.alternatives[3].quantity,1)
+end)
+for _,suffix in ipairs({"", "\n- 10 Gold Ore\n- broken", "\n- 0 Gold Ore", "\n- 2 Gold Ore\n- 3 Gold Ore"}) do
+  test("English invalid block refuses partial results: "..suffix,function()
+    local p,status=CS.Parser.Parse({{leftText="Crate"},{leftText="Use: "..englishMarker..suffix}})
+    eq(p,nil); eq(status,"invalid")
+  end)
+end
+test("mixed language markers are ambiguous",function()
+  local p,status=CS.Parser.Parse({{leftText="Crate"},
+    {leftText="Use: "..englishMarker.."\n- 10 Gold Ore"},
+    {leftText=marker.."\n- 20 Mithril Ore"}})
+  eq(p,nil); eq(status,"invalid")
+end)
+test("English malformed header reports English expected text",function()
+  local p,status,detail=CS.Parser.Parse({{leftText="Crate"},
+    {leftText="Use:  "..englishMarker.."\n- 10 Gold Ore"}})
+  eq(p,nil); eq(status,"invalid"); eq(detail.expected,"Use: "..englishMarker)
+end)
