@@ -71,7 +71,7 @@ python .\tests\check_package.py
 
 ## Roteiro de validação dentro do Forever
 
-A localização foi verificada fora do jogo. Ainda é necessário validar no Forever a aparência e os acentos dos diálogos/avisos nos dois idiomas, a seleção de locale real, a preservação das listas entre sessões e obter uma captura real inglesa antes de ampliar o parser.
+A localização tem testes fora do jogo e o proprietário confirmou funcionamento no Forever após essa alteração. Essa confirmação não detalha individualmente todos os locales e cenários do roteiro abaixo. O parser inglês continua dependendo de uma captura real antes de ser ampliado.
 
 1. Ativar erros Lua e verificar carregamento sem erros com Auctionator 346 ou superior.
 2. Abrir a Casa de Leilões, deixar chat sem foco e fazer Shift+clique nos caixotes de plantas e minérios.
@@ -91,3 +91,9 @@ As mudanças da versão estão no [changelog](CHANGELOG.md).
 ## Licença
 
 O código do CrateShop é distribuído sob a [licença MIT](LICENSE), copyright (c) 2026 Gallaf. Distribuições devem incluir o aviso de autoria e o texto da licença. A procedência do catálogo permanece documentada em [Catálogo de caixotes](docs/catalog.md).
+
+## Pacote para publicação
+
+Versão preparada: **0.3.0**. O arquivo `dist/CrateShop-0.3.0.zip` contém `CrateShop/CrateShop.toc`, os sete módulos Lua listados no TOC, `CrateShop/LICENSE` e `CrateShop/CHANGELOG.md`. Extraia na pasta `Interface/AddOns`, preservando a estrutura. Auctionator 346 ou superior deve ser instalado separadamente.
+
+O ZIP é um artefato local ignorado pelo Git; não inclui testes, `.tools`, SavedVariables, dados pessoais ou o diretório `branding`. O avatar da página está em [branding/crateshop-avatar.png](branding/crateshop-avatar.png). Preparar o pacote e integrar o código não publica uma versão no CurseForge nem cria uma GitHub Release.
