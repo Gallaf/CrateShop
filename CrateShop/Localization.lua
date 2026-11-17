@@ -51,7 +51,7 @@ local english = {
   REASON_alternative="alternative",
   REASON_empty="empty block",
   INVALID_REQUIREMENTS="Incomplete or ambiguous requirements. No lists were created.%s",
-  UNSUPPORTED_TOOLTIP="Unrecognized requirements format. Only the Portuguese format has been validated; a real English tooltip capture is still needed. No lists were created.",
+  UNSUPPORTED_TOOLTIP="Unrecognized requirements format. Supported tooltip languages: Portuguese and English. No lists were created.",
 }
 local portuguese = {
   BAD_DB="Dados próprios incompatíveis; addon desativado. Preserve CrateShop.lua para diagnóstico.",
@@ -104,7 +104,7 @@ local portuguese = {
   REASON_alternative="alternativa (alternative)",
   REASON_empty="bloco vazio (empty)",
   INVALID_REQUIREMENTS="Requisitos incompletos ou ambíguos. Nenhuma lista foi criada.%s",
-  UNSUPPORTED_TOOLTIP="Formato de requisitos não reconhecido. Apenas o formato português foi validado; falta uma captura real de tooltip inglês. Nenhuma lista foi criada.",
+  UNSUPPORTED_TOOLTIP="Formato de requisitos não reconhecido. Idiomas de tooltip suportados: português e inglês. Nenhuma lista foi criada.",
 }
 local locale=GetLocale and GetLocale()
 NS.L=(locale=="ptBR" or locale=="ptPT") and setmetatable(portuguese,{__index=english}) or english

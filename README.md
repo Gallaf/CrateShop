@@ -2,13 +2,15 @@
 
 Addon para WoW Forever com interface em português ou inglês. Reconhece os requisitos no tooltip e usa um catálogo versionado de IDs para criar, após confirmação, uma Shopping List no Auctionator com os nomes corretos dos materiais. Cada entrada é uma **alternativa**: basta preencher um conjunto, não comprar tudo.
 
-## Idioma da interface e limite do parser
+## Idiomas da interface e do tooltip
 
 `GetLocale()` seleciona português para `ptBR` e `ptPT` (mesmas traduções por enquanto). Qualquer outro locale, incluindo `enUS`, `enGB` e `deDE`, usa inglês. Inglês também é o fallback por chave quando falta uma tradução portuguesa. Os textos ficam em `CrateShop/Localization.lua`, sem bibliotecas externas, com placeholders para valores dinâmicos. O TOC deve carregar esse arquivo primeiro; após atualizar, feche e reabra o cliente.
 
 A tradução cobre diálogos, botões, confirmações, avisos, erros e diagnósticos próprios. Não há comandos slash ou ajuda interna implementados atualmente. CrateShop, APIs e comandos existentes são preservados. Nomes de caixotes e materiais continuam exatamente como fornecidos pelo jogo; a tradução da interface não fornece termos de pesquisa nem traduz materiais.
 
-**Interface em inglês não significa suporte a tooltip inglês.** As capturas e o parser atuais validam somente o marcador português “Encha o caixote com qualquer conjunto da lista a seguir:” e suas alternativas. Não há captura real inglesa no repositório; nenhuma frase inglesa foi presumida. Um caixote conhecido no catálogo com formato não reconhecido gera erro no idioma selecionado e não cria lista. Itens comuns continuam silenciosos. Caixotes desconhecidos com formato não reconhecido não podem ser identificados com segurança e também são ignorados.
+**O parser suporta os formatos português e inglês**, independentemente do idioma da interface. O português tem capturas fornecidas pelo usuário; o inglês tem testes automatizados com textos extraídos do cliente e publicados pelo ForeverDiff. A distribuição das linhas inglesas nas fixtures foi reconstruída para os testes, não capturada no jogo. Não houve validação no cliente inglês. Consulte [fontes e limites da validação](docs/english-tooltips.md).
+
+Um caixote conhecido no catálogo com formato não reconhecido gera erro no idioma selecionado e não cria lista. Itens comuns continuam silenciosos. Tooltips em outros idiomas não são suportados, mesmo quando a interface usa inglês.
 
 Trocar o idioma não escreve, traduz nem recria listas existentes. O vínculo continua sendo pelo Item ID do caixote, com as mesmas verificações de propriedade e deduplicação. Ao confirmar uma atualização, uma lista própria existente mantém o nome salvo, mesmo se o jogo fornecer um nome diferente após mudar o locale; a migração já existente de `CrateShop:` para `CS:` permanece. Nomes canônicos dos materiais só são atualizados mediante confirmação, pelas APIs do jogo.
 
@@ -27,7 +29,7 @@ Abra a Casa de Leilões e faça Shift+clique no hyperlink de um caixote. Mantenh
 
 As entradas usam os IDs/quantidades do catálogo e nomes exatos localizados obtidos do cliente. O CrateShop não inicia pesquisa nem compra. O Auctionator continua realizando sua busca habitual do Shift+clique; pesquisar/expandir manualmente a lista depois segue as preferências normais dele.
 
-O parser usa a frase “Encha o caixote com qualquer conjunto da lista a seguir:” e alternativas “- quantidade nome”. **Novos caixotes exigem inclusão no catálogo**, além de manterem esse formato suportado. A versão atual cobre 30 caixotes; consulte [origem, limites e atualização dos dados](docs/catalog.md).
+O parser reconhece os marcadores português e inglês documentados e alternativas “- quantidade nome”. **Novos caixotes exigem inclusão no catálogo**, além de manterem esse formato suportado. A versão atual cobre 30 caixotes; consulte [origem, limites e atualização dos dados](docs/catalog.md).
 
 Se o caixote ou o nome de algum material ainda não estiver carregado, aguarde e repita o gesto. A operação é bloqueada integralmente até obter todos os nomes; para materiais, a solicitação de carga é limitada a uma por ID na sessão. Não há repetição automática. Avisos são limitados a um a cada cinco segundos. Itens comuns com tooltip disponível são ignorados silenciosamente.
 
@@ -55,7 +57,7 @@ Na raiz do repositório, com Lua 5.1:
 lua .\tests\run.lua
 ~~~
 
-A suíte verifica os locales `ptBR`, `ptPT`, `enUS`, `enGB` e `deDE`, inglês sem `GetLocale`, fallback de chave ausente, placeholders/acentos, aviso de formato não reconhecido e preservação/deduplicação de listas após troca de locale. Os tooltips portugueses usados nesses testes são as capturas já disponíveis; os testes não simulam uma suposta frase inglesa.
+A suíte verifica os locales `ptBR`, `ptPT`, `enUS`, `enGB` e `deDE`, inglês sem `GetLocale`, fallback de chave ausente, placeholders/acentos, aviso de formato não reconhecido e preservação/deduplicação de listas após troca de locale. As fixtures portuguesas são capturas do usuário; as inglesas usam textos publicados pelo ForeverDiff, com linhas reconstruídas. A suíte cobre o parser dos dois idiomas e o fluxo inglês de confirmação, cancelamento, criação e atualização com preservação de lista manual e sem evento de pesquisa adicional.
 
 O harness lê o código instalado do Auctionator, sem carregar SavedVariables pessoais. Para outra instalação, configure AUCTIONATOR_PATH apontando para a pasta Auctionator. Requer Auctionator 346 ou superior; o harness lê a versão e as fontes da instalação indicada.
 
@@ -71,7 +73,7 @@ python .\tests\check_package.py
 
 ## Roteiro de validação dentro do Forever
 
-A localização tem testes fora do jogo e o proprietário confirmou funcionamento no Forever após essa alteração. Essa confirmação não detalha individualmente todos os locales e cenários do roteiro abaixo. O parser inglês continua dependendo de uma captura real antes de ser ampliado.
+A localização tem testes fora do jogo e o proprietário confirmou funcionamento no Forever após essa alteração. Essa confirmação não detalha individualmente todos os locales e cenários do roteiro abaixo. O parser inglês tem cobertura automatizada com os exemplos documentados, sem execução no cliente inglês; essa validação permanece opcional para complementar as evidências.
 
 1. Ativar erros Lua e verificar carregamento sem erros com Auctionator 346 ou superior.
 2. Abrir a Casa de Leilões, deixar chat sem foco e fazer Shift+clique nos caixotes de plantas e minérios.

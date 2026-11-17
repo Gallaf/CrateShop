@@ -40,7 +40,7 @@ A versão mínima, APIs e métodos usados são conferidos antes da operação. M
 
 O hook é somente observador e não modifica retorno/argumentos do handler original. Exige AH aberta, Shift e hyperlink de item. Chat visível/focado e outros campos são ignorados. A exceção é a identidade exata de AuctionatorShoppingFrame.SearchOptions.SearchString: esse campo sem nome pode manter foco durante a busca normal. Liberá-lo evita exigir que o usuário limpe o filtro.
 
-O parser usa o marcador real, divide CR/LF e quebras internas, remove cores hexadecimais e nomeadas (incluindo |cnIQ1:) e preserva rótulos localizados. Aceita inteiros positivos representáveis, rejeitando duplicatas, marcador repetido, bloco vazio e alternativas inválidas sem aceitar parcialmente o bloco.
+O parser reconhece os marcadores explícitos português e inglês, independentemente do locale da interface; veja [fonte e limites do inglês](english-tooltips.md). Divide CR/LF e quebras internas, remove cores hexadecimais e nomeadas (incluindo |cnIQ1:) e preserva rótulos localizados. Aceita inteiros positivos representáveis, rejeitando duplicatas, marcador repetido, bloco vazio e alternativas inválidas sem aceitar parcialmente o bloco.
 
 Um bloco inline termina na própria linha lógica; linhas externas semelhantes a alternativas não são incorporadas. Se o marcador estiver isolado, podem seguir alternativas em linhas lógicas contíguas até uma linha externa não alternativa. Truncagem silenciosa após uma alternativa válida não é comprovadamente detectável pelo parser.
 
@@ -90,3 +90,7 @@ As evidências foram fornecidas pelo usuário, não por automação do jogo:
 - Usuário confirmou funcionamento do incremento 0.2.1 (CS:/recuperação/ícone) antes de solicitar a integração; não forneceu detalhamento visual separado de cada cenário.
 
 Permanecem sem comprovação individual no cliente: minérios com quantidades distintas, todos os caminhos de cancelamento/colisão/edição/obsolescência, persistência entre sessões, aparência isolada do ícone e ausência de busca adicional no instante do aceite com AUTO_LIST_SEARCH ligado/desligado. Esses comportamentos têm cobertura parcial ou integral no harness, mas não são apresentados como teste real no Forever.
+
+## Ampliação inglesa em 2026-11-17
+
+O parser e o fluxo inglês foram verificados fora do jogo com fixtures documentadas e nomes canônicos simulados. O aviso antigo de suporte exclusivo ao português foi substituído por uma mensagem dos idiomas suportados. Não houve teste no cliente inglês nem modificação da instalação do jogo. A suíte atual inclui os testes anteriores de localização e os novos casos de inglês; os números acima são históricos das respectivas entregas.
