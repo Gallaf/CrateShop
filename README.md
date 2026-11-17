@@ -87,3 +87,7 @@ A localização foi verificada fora do jogo. Ainda é necessário validar no For
 O usuário confirmou no Forever a atualização da lista de plantas, os cinco materiais canônicos com dez unidades e resultados de busca, além da recuperação de cache frio e da correção de foco na aba do Auctionator. Também confirmou funcionamento após o incremento 0.2.1. Isso não substitui a conferência individual de todos os cenários acima: o harness não certifica persistência entre sessões, taint nem ausência de pesquisas adicionais no cliente. Consulte [evidências e limites](docs/compatibility.md).
 
 As mudanças da versão estão no [changelog](CHANGELOG.md).
+
+## Licença
+
+O código do CrateShop é distribuído sob a [licença MIT](LICENSE), copyright (c) 2026 Gallaf. Distribuições devem incluir o aviso de autoria e o texto da licença. A procedência do catálogo permanece documentada em [Catálogo de caixotes](docs/catalog.md).
