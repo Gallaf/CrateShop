@@ -3,7 +3,7 @@ local function module(path)
   local f=loadfile("CrateShop/"..path..".lua")
   if f then f("CrateShop",CS) end
 end
-local handlers, hooks, popup, messages, queried, focused, shifted
+local handlers, hooks, popup, messages, queried, focused, shifted, listUI
 local link="|cffffffff|Hitem:248692::::::::|h[Caixa]|h|r"
 local function setupFlow(locale)
   GetLocale=function() return locale or "ptBR" end
@@ -42,7 +42,19 @@ local function setupFlow(locale)
     eq(actual,link); queried=queried+1
     return {lines=Fixtures.ores}
   end}
-  AuctionHouseFrame=nil; AuctionFrame=nil; AuctionatorShoppingFrame=nil
+  AuctionHouseFrame=nil; AuctionFrame=nil
+  dofile(root.."/Source/Tabs/Shopping/Mixins/ListsContainer.lua")
+  listUI={expansions=0,scrolls=0,populates=0}
+  setmetatable(listUI,{__index=AuctionatorShoppingTabListsContainerMixin})
+  listUI.Populate=function(self) self.populates=self.populates+1 end
+  listUI.ScrollToList=function(self,list) self.scrolls=self.scrolls+1; self.scrolled=list end
+  listUI.onListExpanded=function() listUI.expansions=listUI.expansions+1 end
+  Auctionator.Constants.ShoppingListViews={Lists="lists"}
+  AuctionatorShoppingFrame={
+    IsShown=function() return true end,
+    ListsContainer=listUI,
+    ContainerTabs={SetView=function(_,view) listUI.view=view end},
+  }
   module("ConfirmationDialog"); module("CrateDetector"); module("Core")
   assert(CS.Core,"flow not implemented")
   handlers.OnEvent(nil,"ADDON_LOADED","CrateShop")
@@ -57,6 +69,7 @@ local function click() assert(#hooks>0,"secure hook missing"); hooks[#hooks].cal
 local function accept()
   local old=assert(popup,"confirmation missing")
   StaticPopupDialogs[old.key].OnAccept(old,old.data)
+  StaticPopup_Hide(old.key)
 end
 local function cancel()
   local old=assert(popup,"confirmation missing")
@@ -67,15 +80,22 @@ test("Shift clique só grava após confirmação e clique repetido não duplica"
   click(); eq(m:GetCount(),0); assert(popup.text:find("2",1,true))
   assert(popup.text:find("alternativas",1,true)); assert(popup.text:find("um conjunto",1,true))
   click(); eq(queried,1)
-  accept(); eq(m:GetCount(),1); accept(); eq(m:GetCount(),1)
+  local old=popup
+  accept(); eq(m:GetCount(),1)
+  StaticPopupDialogs[old.key].OnAccept(old,old.data); eq(m:GetCount(),1)
 end)
 test("cancelar não altera nem cria lista", function()
   local m=setupFlow(); click(); cancel(); eq(m:GetCount(),0)
   click(); assert(popup); eq(queried,2)
 end)
-test("botão oferece atualização para lista própria", function()
-  setupFlow(); click(); accept(); click()
-  eq(popup.button1.text,"Atualizar lista")
+test("Shift clique expande lista própria atualizada sem diálogo ou escrita", function()
+  local m,db=setupFlow(); click(); accept()
+  local record=db.lists[248692]; local items=CopyTable(record.items)
+  click()
+  eq(popup,nil); eq(CS.Core.pending,nil)
+  eq(listUI.view,"lists"); eq(listUI:GetExpandedList():GetName(),record.name)
+  eq(listUI.expansions,1); eq(m:GetCount(),1); eq(db.lists[248692],record)
+  eq(record.items[1],items[1]); eq(record.items[2],items[2]); eq(#messages,1)
 end)
 test("chat focado Shift ausente AH fechada e não item são ignorados", function()
   setupFlow()
@@ -253,8 +273,7 @@ for _,locale in ipairs({"ptBR","ptPT","enUS","enGB","deDE"}) do
     assert(popup.text:find(portuguese and "2 alternativas" or "2 alternatives",1,true))
     accept(); eq(m:GetCount(),1)
     eq(messages[1],"|cffc99b51CS:|r "..(portuguese and "Lista criada: " or "List created: ").."Minérios de Especialista.")
-    click(); eq(popup.button1.text,portuguese and "Atualizar lista" or "Update list")
-    accept(); eq(m:GetCount(),1)
+    click(); eq(popup,nil); eq(listUI.expansions,1); eq(m:GetCount(),1)
   end)
   test("unrecognized known crate warns without inventing tooltip: "..locale,function()
     local m=setupFlow(locale)
@@ -306,7 +325,46 @@ for _,locale in ipairs({"enUS","enGB"}) do
     local list=m:GetByName(db.lists[248692].name)
     eq(list:GetItemByIndex(1),'"Gold Ore";;;;;;;;;;;#;;10')
     eq(list:GetItemByIndex(2),'"Mithril Ore";;;;;;;;;;;#;;20')
-    click(); eq(popup.button1.text,"Update list"); accept(); eq(m:GetCount(),2)
+    click(); eq(popup,nil); eq(listUI.expansions,1); eq(m:GetCount(),2)
     eq(m:GetByName("Manual list"):GetItemByIndex(1),"Keep me")
+  end)
+end
+
+test("lista já expandida só recebe foco sem reexpandir",function()
+  setupFlow(); click(); accept(); click(); click()
+  eq(popup,nil); eq(listUI.expansions,1); eq(listUI.scrolls,2)
+end)
+test("UI ausente não regrava lista nem oferece atualização desnecessária",function()
+  local m,db=setupFlow(); click(); accept()
+  local record=db.lists[248692]
+  AuctionatorShoppingFrame=nil
+  click(); eq(popup,nil); eq(CS.Core.pending,nil); eq(m:GetCount(),1)
+  eq(db.lists[248692],record); eq(#messages,2)
+end)
+test("catálogo novo mantém confirmação de atualização",function()
+  local m,db=setupFlow(); click(); accept()
+  db.lists[248692].catalogVersion="older"
+  click(); eq(popup.button1.text,"Atualizar lista"); eq(listUI.expansions,0)
+  accept(); eq(m:GetCount(),1)
+end)
+test("lista editada não é sobrescrita nem aberta por coincidência de nome",function()
+  local m,db=setupFlow(); click(); accept()
+  m:GetByName(db.lists[248692].name):AppendItems({"Manual edit"})
+  click(); eq(popup,nil); eq(listUI.expansions,0); eq(m:GetCount(),1)
+end)
+
+for _,case in ipairs({
+  {"hidden frame",function() AuctionatorShoppingFrame.IsShown=function() return false end end},
+  {"missing ExpandList",function() listUI.ExpandList=false end},
+  {"missing list view",function() Auctionator.Constants.ShoppingListViews=nil end},
+  {"UI callback failure",function() listUI.onListExpanded=function() error("UI failure") end end},
+}) do
+  test("open failure is safe and retryable: "..case[1],function()
+    local m,db=setupFlow(); click(); accept()
+    local record=db.lists[248692]
+    case[2](); click()
+    eq(popup,nil); eq(CS.Core.pending,nil); eq(m:GetCount(),1)
+    eq(db.lists[248692],record); eq(CS.Core.integration.busy,false)
+    eq(#messages,2)
   end)
 end

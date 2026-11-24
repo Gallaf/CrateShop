@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0 — 2026-11-22 (preparada; não publicada)
+
+- Shift+clique seleciona e expande a lista própria já atualizada no Auctionator, sem diálogo, gravação ou mensagem de atualização.
+- Lista já expandida apenas recebe rolagem; atualização necessária e migração preservam confirmação. Listas editadas continuam protegidas.
+- Abertura usa a expansão nativa, respeitando AUTO_LIST_SEARCH; criação/atualização continuam sem pesquisa adicional.
+- Painel ausente/incompatível gera aviso localizado sem alterar listas. Testes fora do jogo incluem o método ExpandList do Auctionator instalado; seleção visual ainda depende de validação no cliente.
+
 ## 0.3.0 — 2026-11-17 (preparada; não publicada)
 
 - Interface em português para ptBR/ptPT e inglês para os demais locales, com fallback inglês por chave.

@@ -74,6 +74,9 @@ function Core:Observe(link)
   end
   local ticket,err=self.integration:Prepare(id,parsed)
   if not ticket then self:Warn(err); return end
+  local opened,openError=self.integration:OpenIfCurrent(ticket)
+  if opened then return end
+  if opened==nil then self:Warn(openError); return end
   ticket.link=link
   self.pending=ticket
   local shown,dialog=pcall(NS.Dialog.Show,NS.Dialog,ticket,parsed)

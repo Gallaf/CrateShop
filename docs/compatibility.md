@@ -94,3 +94,13 @@ Permanecem sem comprovação individual no cliente: minérios com quantidades di
 ## Ampliação inglesa em 2026-11-17
 
 O parser e o fluxo inglês foram verificados fora do jogo com fixtures documentadas e nomes canônicos simulados. O aviso antigo de suporte exclusivo ao português foi substituído por uma mensagem dos idiomas suportados. Não houve teste no cliente inglês nem modificação da instalação do jogo. A suíte atual inclui os testes anteriores de localização e os novos casos de inglês; os números acima são históricos das respectivas entregas.
+
+## Abertura rápida de lista própria (0.4.0)
+
+Core prepara e valida o mesmo ticket usado para persistência. Quando origem/destino coincidem, as entradas atuais correspondem aos termos preparados e a versão de catálogo coincide, Integration:OpenIfCurrent seleciona ShoppingListViews.Lists via ContainerTabs:SetView e usa ListsContainer:ExpandList. Essa sequência foi inspecionada no OpenDefaultList do Auctionator instalado. GetExpandedList e a identidade data evitam reexpandir a mesma lista; nesse caso chama apenas ScrollToList.
+
+Não há Commit, escrita no vínculo, renomeação ou limpeza de itens nessa abertura. Conteúdo obsoleto, catálogo anterior e nome legado mantêm o diálogo existente. Proteções contra colisões e edição manual continuam bloqueando antes de abrir. UI ausente/oculta/incompatível ou erro de callback retorna aviso localizado; a trava de operação é liberada.
+
+Ao contrário da gravação de listas, abrir uma lista invoca callbacks nativos de expansão. AUTO_LIST_SEARCH pode iniciar pesquisa conforme as preferências do jogador. O CrateShop não substitui callbacks, não altera configurações e não faz chamada própria de busca. Não se promete ausência de pesquisa durante a abertura nativa.
+
+A suíte carrega o método ExpandList real da instalação e simula renderização, rolagem e seleção de aba. Confere abertura sem diálogo/gravação, repetição, UI indisponível/incompatível, erro de callback, migração e conteúdo obsoleto. Não houve validação visual no Forever desta alteração.
