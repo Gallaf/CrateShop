@@ -25,9 +25,9 @@ Compatibilidade inspecionada: cliente **1.60.1.70938**, interface **16001**, Auc
 
 ## Uso
 
-Abra a Casa de Leilões e faça Shift+clique no hyperlink de um caixote. Mantenha o chat sem foco. Confira nome e número de alternativas e escolha **Criar lista** ou **Cancelar**. Uma lista já associada oferece **Atualizar lista**. Após concluir, o chat exibe uma confirmação curta, como “CS: Lista atualizada: Plantas de Profissional.” Avisos de erro continuam visíveis.
+Abra a Casa de Leilões e faça Shift+clique no hyperlink de um caixote. Mantenha o chat sem foco. Confira nome e número de alternativas e escolha **Criar lista** ou **Cancelar**. Se a lista própria já estiver atualizada, o Shift+clique seleciona e expande essa lista no painel de listas do Auctionator, sem diálogo ou gravação. Se já estiver expandida, apenas rola até ela. Uma lista que precisa atualizar conteúdo, versão do catálogo ou nome legado oferece **Atualizar lista**. Após concluir, o chat exibe uma confirmação curta, como “CS: Lista atualizada: Plantas de Profissional.” Avisos de erro continuam visíveis.
 
-As entradas usam os IDs/quantidades do catálogo e nomes exatos localizados obtidos do cliente. O CrateShop não inicia pesquisa nem compra. O Auctionator continua realizando sua busca habitual do Shift+clique; pesquisar/expandir manualmente a lista depois segue as preferências normais dele.
+As entradas usam os IDs/quantidades do catálogo e nomes exatos localizados obtidos do cliente. O CrateShop não executa compras. Criar/atualizar uma lista não inicia pesquisa adicional. O Auctionator continua realizando a busca habitual do Shift+clique. A abertura de lista existente usa a expansão nativa: se a preferência de pesquisar automaticamente ao expandir estiver ligada no Auctionator, ele pode pesquisar a lista nesse momento. O CrateShop não altera essa preferência nem chama uma busca separada.
 
 O parser reconhece os marcadores português e inglês documentados e alternativas “- quantidade nome”. **Novos caixotes exigem inclusão no catálogo**, além de manterem esse formato suportado. A versão atual cobre 30 caixotes; consulte [origem, limites e atualização dos dados](docs/catalog.md).
 
@@ -80,7 +80,7 @@ A localização tem testes fora do jogo e o proprietário confirmou funcionament
 3. Conferir nome, cinco/duas alternativas e os botões; cancelar e verificar ausência de lista nova.
 4. Repetir, confirmar e conferir nomes exatos e quantidades (minérios: 10 Ouro, 20 Mithril).
 5. Observar a busca normal do Auctionator e confirmar que **confirmar a lista não dispara outra busca**, inclusive com AUTO_LIST_SEARCH ligado e desligado.
-6. Repetir para atualizar; verificar que nenhuma outra lista muda e cliques repetidos não duplicam.
+6. Repetir o Shift+clique com a lista atualizada: deve selecionar/expandir sem confirmação ou mensagem de atualização. Repetir com a lista já aberta deve apenas rolar até ela. Conferir preservação das demais listas e comportamento com pesquisa automática ligada/desligada. Atualização necessária ou migração ainda deve pedir confirmação.
 7. Testar colisão com lista manual e edição da própria (recusa); apagar a própria e reimportar (nova criação); renomear manualmente e conferir preservação da renomeada.
 8. Abrir confirmação e fechar AH, usar Escape, mudar tooltip/lista e tentar confirmar; não deve gravar dados obsoletos.
 9. Shift+clique em item comum e com chat focado: sem confirmação/spam; conferir que links no chat continuam normais.
@@ -99,3 +99,7 @@ O código do CrateShop é distribuído sob a [licença MIT](LICENSE), copyright 
 Versão preparada: **0.3.0**. O arquivo `dist/CrateShop-0.3.0.zip` contém `CrateShop/CrateShop.toc`, os sete módulos Lua listados no TOC, `CrateShop/LICENSE` e `CrateShop/CHANGELOG.md`. Extraia na pasta `Interface/AddOns`, preservando a estrutura. Auctionator 346 ou superior deve ser instalado separadamente.
 
 O ZIP é um artefato local ignorado pelo Git; não inclui testes, `.tools`, SavedVariables, dados pessoais ou o diretório `branding`. O avatar da página está em [branding/crateshop-avatar.png](branding/crateshop-avatar.png). Preparar o pacote e integrar o código não publica uma versão no CurseForge nem cria uma GitHub Release.
+
+## Testar a abertura rápida (0.4.0)
+
+Copie a pasta interna CrateShop do pacote 0.4.0 para AddOns e recarregue a UI. Na aba Comprar, faça Shift+clique em um caixote cuja lista própria já existe e está atualizada. A lista deve aparecer expandida no painel de listas, sem nova confirmação e sem regravar materiais. UI não disponível gera um aviso para abrir Comprar e tentar novamente; não cria outra lista. Este incremento foi testado fora do jogo, sem instalação automática no cliente.

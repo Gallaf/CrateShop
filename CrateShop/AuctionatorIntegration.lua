@@ -126,6 +126,42 @@ function Integration:Prepare(id, parsed)
   return ticket
 end
 
+-- Opening is a UI action only; obsolete contents and legacy names still need confirmation.
+function Integration:OpenIfCurrent(ticket)
+  if ticket.action~="update" or ticket.sourceName~=ticket.name
+    or ticket.record.catalogVersion~=ticket.catalogVersion
+    or not same(ticket.before,ticket.items) then return false end
+  if self.busy then return nil,L.BUSY end
+  self.busy=true
+  local ok,err=pcall(function()
+    local manager=self:Compatible()
+    local list=self:Find(manager,ticket.sourceName)
+    if manager~=ticket.manager or not list or list.data~=ticket.identity
+      or self.db.lists[ticket.id]~=ticket.record or list:IsTemporary()
+      or not same(list:GetAllItems(),ticket.items) then error(L.DATA_CHANGED,0) end
+    local frame=AuctionatorShoppingFrame
+    local container=frame and frame.ListsContainer
+    local tabs=frame and frame.ContainerTabs
+    local views=Auctionator.Constants.ShoppingListViews
+    if not frame or type(frame.IsShown)~="function" or not frame:IsShown()
+      or not requireMethods(container,{"ExpandList","GetExpandedList","ScrollToList"})
+      or not requireMethods(tabs,{"SetView"}) or not views or views.Lists==nil then
+      error(L.NO_LIST_UI,0)
+    end
+    tabs:SetView(views.Lists)
+    local expanded=container:GetExpandedList()
+    if expanded and expanded.data==list.data then
+      container:ScrollToList(list)
+    else
+      -- Native callbacks deliberately respect the player's AUTO_LIST_SEARCH preference.
+      container:ExpandList(list)
+    end
+  end)
+  self.busy=false
+  if not ok then return nil,string.format(L.OPEN_LIST_FAILED,tostring(err)) end
+  return true
+end
+
 function Integration:Commit(ticket)
   if self.busy or type(ticket)~="table" or ticket.used then
     return nil,L.USED_CONFIRMATION

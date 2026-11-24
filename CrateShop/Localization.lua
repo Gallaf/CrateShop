@@ -1,6 +1,8 @@
 -- UI text only. Tooltip recognition and game-provided names stay independent.
 local _, NS = ...
 local english = {
+  NO_LIST_UI="Auctionator shopping list panel is unavailable. Open the Shopping tab and Shift+click again.",
+  OPEN_LIST_FAILED="Could not open the existing list: %s",
   BAD_DB="Incompatible saved data; addon disabled. Preserve CrateShop.lua for diagnosis.",
   TOOLTIP_UNAVAILABLE="Tooltip unavailable or item not loaded yet. Wait and Shift+click again.",
   CONFIRM_FAILED="Could not open the confirmation. Try again.",
@@ -54,6 +56,8 @@ local english = {
   UNSUPPORTED_TOOLTIP="Unrecognized requirements format. Supported tooltip languages: Portuguese and English. No lists were created.",
 }
 local portuguese = {
+  NO_LIST_UI="O painel de listas do Auctionator está indisponível. Abra a aba Comprar e faça Shift+clique novamente.",
+  OPEN_LIST_FAILED="Não foi possível abrir a lista existente: %s",
   BAD_DB="Dados próprios incompatíveis; addon desativado. Preserve CrateShop.lua para diagnóstico.",
   TOOLTIP_UNAVAILABLE="Tooltip indisponível ou item ainda não carregado. Aguarde e faça Shift+clique novamente.",
   CONFIRM_FAILED="Não foi possível abrir a confirmação. Tente novamente.",
